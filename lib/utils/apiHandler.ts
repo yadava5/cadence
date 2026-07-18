@@ -82,8 +82,13 @@ export function createApiHandler(
  * Simple method-based route handler
  */
 export function createMethodHandler(
-  handlers: Partial<Record<HttpMethod, RouteHandler>>
+  handlers: Partial<Record<HttpMethod, RouteHandler>>,
+  options?: { rateLimit?: keyof typeof rateLimitPresets }
 ) {
+  // Auth routes pass `{ rateLimit: 'auth' }` to get the strict 5/15min limiter
+  // instead of the lenient 100/15min api default — the difference between a
+  // real brute-force/credential-stuffing throttle and none.
+  const limiter = rateLimitPresets[options?.rateLimit ?? 'api'];
   return asyncHandler(
     async (req: AuthenticatedRequest, res: VercelResponse) => {
       const method = req.method as HttpMethod;
@@ -101,7 +106,7 @@ export function createMethodHandler(
         corsMiddleware(),
         requestIdMiddleware(),
         requestLogger(),
-        rateLimitPresets.api
+        limiter
       )(req, res, async () => {
         await handler(req, res);
       });
