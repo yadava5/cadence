@@ -3,6 +3,7 @@ import { BodyPage } from "../templates/BodyPage";
 import { PullQuote } from "../primitives/PullQuote";
 import { COLORS, FONTS, SECTION_INK } from "../theme";
 import { WHY } from "../content";
+import { FigureCard } from "../visuals/charts";
 
 const SECTION_LABEL = "WHY";
 const ACCENT = SECTION_INK["01_WHY"];
@@ -118,6 +119,35 @@ export const WhyFormsPage: React.FC<PageProps> = (p) => {
           </div>
         </div>
       </div>
+
+      {/* six boxes, one thought — the fields you already knew before the dialog */}
+      <div style={{ marginTop: 22, borderTop: `0.5pt solid ${COLORS.HAIRLINE}`, paddingTop: 14, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        <span style={{ fontFamily: FONTS.MONO, fontSize: 8, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: ACCENT, flexShrink: 0 }}>
+          the six
+        </span>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, flex: 1 }}>
+          {c.fields.map((f) => (
+            <span
+              key={f.label}
+              style={{
+                fontFamily: FONTS.MONO,
+                fontSize: 8.5,
+                letterSpacing: "0.08em",
+                color: COLORS.INK_MUTED,
+                background: COLORS.PAPER_ELEVATED,
+                border: `0.5pt solid ${COLORS.HAIRLINE}`,
+                borderRadius: 3,
+                padding: "3px 9px",
+              }}
+            >
+              {f.label}
+            </span>
+          ))}
+        </div>
+        <span style={{ fontFamily: FONTS.SERIF, fontStyle: "italic", fontSize: 12.5, color: COLORS.INK, flexShrink: 0 }}>
+          you knew all six before the dialog opened.
+        </span>
+      </div>
     </BodyPage>
   );
 };
@@ -181,7 +211,7 @@ export const WhyFrictionPage: React.FC<PageProps> = (p) => {
       </div>
       <div
         style={{
-          marginTop: 22,
+          marginTop: 20,
           borderTop: `0.5pt solid ${COLORS.HAIRLINE}`,
           paddingTop: 14,
           fontFamily: FONTS.SERIF,
@@ -193,7 +223,36 @@ export const WhyFrictionPage: React.FC<PageProps> = (p) => {
       >
         {c.gate}
       </div>
+
+      {/* the cost, as units — six fields to fill vs one line to type */}
+      <div style={{ marginTop: 20 }}>
+        <FigureCard label="one lunch · the cost" caption="Same event, logged two ways: six fields to hand-assemble, or one sentence to type. The form's cost is the count of boxes it makes you fill.">
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <CostRow label="FILL THE FORM" units={6} note="six fields · title · date · start · end · list · priority" tone="form" />
+            <CostRow label="TYPE THE SENTENCE" units={1} note="one line · “lunch with Sam tomorrow at one”" tone="sentence" />
+          </div>
+        </FigureCard>
+      </div>
     </BodyPage>
+  );
+};
+
+const CostRow: React.FC<{ label: string; units: number; note: string; tone: "form" | "sentence" }> = ({ label, units, note, tone }) => {
+  const sentence = tone === "sentence";
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1.35in auto 1fr", alignItems: "center", gap: 14 }}>
+      <span style={{ fontFamily: FONTS.MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: "0.08em", color: sentence ? COLORS.EMERALD_700 : COLORS.INK_MUTED }}>{label}</span>
+      <span style={{ display: "inline-flex", gap: 5, alignItems: "center" }}>
+        {sentence ? (
+          <span style={{ width: 118, height: 16, borderRadius: 8, background: COLORS.EMERALD_400, display: "inline-block" }} />
+        ) : (
+          Array.from({ length: units }).map((_, i) => (
+            <span key={i} style={{ width: 16, height: 16, borderRadius: 3, background: COLORS.SURFACE, border: `1px solid ${COLORS.HAIRLINE_STRONG}` }} />
+          ))
+        )}
+      </span>
+      <span style={{ fontFamily: FONTS.SERIF, fontStyle: "italic", fontSize: 11, color: COLORS.INK_MUTED }}>{note}</span>
+    </div>
   );
 };
 
@@ -229,6 +288,34 @@ export const WhyPlainPage: React.FC<PageProps> = (p) => {
             <span style={{ fontFamily: FONTS.SANS, fontSize: 11.5, fontWeight: 600, color: COLORS.INK }}>{r.to}</span>
           </div>
         ))}
+      </div>
+
+      {/* the comprehension task — the four questions a read of the sentence answers */}
+      <div style={{ marginTop: 22 }}>
+        <div style={{ fontFamily: FONTS.MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: ACCENT, marginBottom: 10 }}>
+          comprehension · four questions
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+          {c.questions.map((qa, i) => (
+            <div
+              key={qa.q}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                padding: "12px 12px",
+                borderRadius: 6,
+                background: COLORS.PAPER_ELEVATED,
+                border: `0.5pt solid ${COLORS.HAIRLINE}`,
+                borderTop: `2.5px solid ${COLORS.EMERALD_400}`,
+              }}
+            >
+              <span style={{ fontFamily: FONTS.MONO, fontSize: 8, fontWeight: 700, color: COLORS.EMERALD_700 }}>{String(i + 1).padStart(2, "0")}</span>
+              <span style={{ fontFamily: FONTS.SANS, fontSize: 12, fontWeight: 600, letterSpacing: "-0.01em", color: COLORS.INK }}>{qa.q}</span>
+              <span style={{ fontFamily: FONTS.SERIF, fontStyle: "italic", fontSize: 11, lineHeight: 1.3, color: COLORS.INK_MUTED }}>{qa.a}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div
