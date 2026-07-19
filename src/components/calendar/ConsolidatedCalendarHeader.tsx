@@ -6,7 +6,9 @@ import {
   Search,
   Filter,
   X,
+  BarChart3,
 } from 'lucide-react';
+import { useInsightsStore } from '@/stores/insightsStore';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import type FullCalendar from '@fullcalendar/react';
@@ -205,6 +207,7 @@ const CalendarToolbar: React.FC<CalendarToolbarProps> = ({
   searchValue = '',
   onSearchChange,
 }) => {
+  const openInsights = useInsightsStore((s) => s.setOpen);
   return (
     <div className="flex items-center gap-1 bg-muted/30 rounded-md p-1">
       {/* Animated Search */}
@@ -212,6 +215,24 @@ const CalendarToolbar: React.FC<CalendarToolbarProps> = ({
         value={searchValue}
         onChange={onSearchChange || (() => {})}
       />
+
+      {/* Insights — "Where your week goes" */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0"
+            onClick={() => openInsights(true)}
+            aria-label="Where your week goes"
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Where your week goes</p>
+        </TooltipContent>
+      </Tooltip>
 
       {/* Filter Button (Future Enhancement) */}
       <Tooltip>
