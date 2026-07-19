@@ -10,6 +10,12 @@ vi.mock('./pages/Login', () => ({
   LoginPage: () => <div>Login Page</div>,
 }));
 
+// Logged-out visitors land on the public welcome landing (App routes "/" through
+// ProtectedRoute redirectTo="/welcome"), so stub the landing for this router test.
+vi.mock('./pages/Welcome', () => ({
+  default: () => <div>Welcome Landing</div>,
+}));
+
 import App from './App';
 
 const resetAuthState = () => {
@@ -53,9 +59,9 @@ describe('App', () => {
     resetAuthState();
   });
 
-  it('renders the login screen for unauthenticated users', async () => {
+  it('redirects unauthenticated users to the welcome landing', async () => {
     render(<App />);
-    expect(await screen.findByText(/Login Page/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Welcome Landing/i)).toBeInTheDocument();
   });
 
   it('renders the main layout for authenticated users', async () => {
