@@ -270,6 +270,14 @@ export const WHY = {
       { from: "“pick a date and a time”", to: "say “tomorrow 1pm”" },
       { from: "“set the list and priority”", to: "add “#work !high”" },
     ],
+    // The comprehension task, spelled out — the four questions the parser answers
+    // (straight from the body above).
+    questions: [
+      { q: "what is it?", a: "event or task" },
+      { q: "when is it?", a: "date · time · range" },
+      { q: "how urgent?", a: "priority level" },
+      { q: "does it clash?", a: "conflict at write time" },
+    ],
     handoff: "So: how do you turn a sentence into a scheduled thing? Turn the page.",
   },
 } as const;
@@ -314,6 +322,12 @@ export const HOW = {
     stat: { value: "10", label: "parser priority · runs first" },
     stat2: { value: "forwardDate", label: "bare weekday → the next one" },
     note: "hasTime keys off isCertain('hour' | 'minute') — a day and a time are handled differently.",
+    // Real phrasings from the copy above — what chrono lifts out of a sentence.
+    examples: [
+      { phrase: "tomorrow 1pm", reads: "date + time" },
+      { phrase: "by Friday", reads: "date · forwardDate" },
+      { phrase: "next Tuesday 9–10am", reads: "date + range" },
+    ],
     source: "source · smart-input/parsers/ChronoDateParser.ts:24,30,39,46",
   },
 
@@ -346,6 +360,13 @@ export const HOW = {
       { pattern: "low priority · someday", level: "low", conf: "0.80" },
     ],
     note: "Every pattern carries an explicit confidence — auditable, not learned.",
+    // The real trigger strings, grouped by the level they map to (from the
+    // rows above + the phrasings named in the copy). What a user actually types.
+    levels: [
+      { level: "HIGH", conf: "0.75 – 0.95", tokens: ["p1", "!high", "urgent", "critical", "asap", "high"] },
+      { level: "MEDIUM", conf: "0.70 – 0.95", tokens: ["p2", "medium"] },
+      { level: "LOW", conf: "0.80 – 0.95", tokens: ["p3", "low priority", "someday", "when possible"] },
+    ],
     source: "source · smart-input/parsers/PriorityParser.ts:15–68",
   },
 
@@ -543,11 +564,20 @@ export const BUILD = {
       { area: "API", tech: "@vercel/node · one dispatcher · pg", note: "32 handlers, pure SQL, no ORM" },
       { area: "DATA", tech: "Supabase Postgres · CA-pinned TLS · JWT", note: "rotation, rate limits, AES-GCM" },
     ],
+    // Where each layer runs — the same stack, told as three tiers.
+    archTiers: [
+      { zone: "CLIENT", runs: "in the browser", items: ["React 19 · Vite", "chrono · priority · compromise", "TanStack Query"] },
+      { zone: "DISPATCH", runs: "one Vercel function", items: ["@vercel/node", "path router", "32 handlers · pure SQL"] },
+      { zone: "DATA", runs: "Supabase Postgres", items: ["CA-pinned TLS", "search_path=public", "JWT · AES-GCM"] },
+    ],
+    archNote: "The parse runs entirely on the client; only the resolved record crosses the wire to the one dispatcher, then to Postgres.",
     source: "source · package.json · api/index.ts · lib/config/database.ts",
   },
 
+  // Page 27 — the TRY-IT page: this is where the reader is sent to the live
+  // product. The QR, the live URL, the demo account, the send-off.
   closing: {
-    eyebrow: "END",
+    eyebrow: "§05 · TRY IT · THE LIVE APP",
     headline: "Type it.",
     tagline: "Run a real sentence through all three stages and watch it land on the week — in your browser.",
     liveLabel: "LIVE WEB APP",
@@ -555,21 +585,29 @@ export const BUILD = {
     spaceLabel: "DEMO ACCOUNT",
     spaceUrl: "john@example.com · password123",
     leftArrowLabel: "open it",
-    rightArrowLabel: "type a sentence",
+    rightArrowLabel: "sign in, seeded",
     microNote: "one sentence · three stages · zero forms",
+    qrTarget: "https://taskflow-calendar-ashy.vercel.app",
+    qrCaption: "scan to open the live app",
+    alsoNote:
+      "No install — it runs in your browser. The demo account is seeded with a real week, so the calendar is not empty when you land.",
   },
 } as const;
 
 // ---------------------------------------------------------------------------
-// Back cover
+// Back cover (page 28) — a PURE CLOSING that mirrors the opening cover: the
+// same full-bleed week field (the wraparound second beat), a quiet wordmark,
+// one closing line, a colophon. No QR, no URL, no CTA — the Try-It page (27)
+// owns the call to action; this page just closes the book.
 // ---------------------------------------------------------------------------
 
 export const BACK_COVER = {
-  qrTarget: "https://taskflow-calendar-ashy.vercel.app",
-  qrCaption: "scan to open the live app",
-  spaceNote: "Demo account, seeded with a real week: john@example.com · password123",
-  colophon: ["TaskFlow", "System Card · Vol. 01", "Ayush Yadav · 2026"],
-  closingLine: "— You already said it. It just needed reading.",
+  wordmark: "task_flow",
+  title: "TaskFlow",
+  closingLine: "You already said it. It just needed reading.",
+  marginNote: "the form, deleted",
+  colophon: ["TaskFlow · System Card", "Vol. 01 · 2026", "Ayush Yadav"],
+  fin: "fin · one sentence, filed",
 } as const;
 
 // Re-export SectionKey so pages can pull the chapter type from content.
