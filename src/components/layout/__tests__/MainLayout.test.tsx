@@ -30,6 +30,10 @@ vi.mock('@/hooks/useKeyboardShortcuts', () => ({
   useKeyboardShortcuts: vi.fn(),
 }));
 
+vi.mock('@/hooks/useEventReminders', () => ({
+  useEventReminders: vi.fn(),
+}));
+
 vi.mock('@/stores/authStore', () => ({
   useAuthStore: vi.fn(),
 }));
@@ -77,9 +81,20 @@ describe('MainLayout', () => {
       setCurrentView: mockSetCurrentView,
     });
 
-    (useSettingsStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+    const settingsMock = useSettingsStore as unknown as ReturnType<
+      typeof vi.fn
+    > & { getState: () => unknown };
+    settingsMock.mockReturnValue({
       sidebarExpanded: true,
       appViewMode: 'calendar',
+      keyboardShortcutsEnabled: true,
+    });
+    // MainLayout reads the Default View + last-used view imperatively via
+    // getState() in its mount effects.
+    settingsMock.getState = () => ({
+      defaultView: 'calendar',
+      lastUsedAppView: 'calendar',
+      setLastUsedAppView: vi.fn(),
     });
 
     (useSettingsDialog as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
