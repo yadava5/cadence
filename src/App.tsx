@@ -9,6 +9,21 @@ import { ProtectedRoute, PublicRoute, AuthLayout } from './components/auth';
 import { useAuthStore } from './stores/authStore';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { Toaster } from 'sonner';
+import { Loader2 } from 'lucide-react';
+
+/**
+ * Fallback shown while a lazy route chunk downloads. Without this the Suspense
+ * boundary rendered `null`, so entering the app right after login (MainLayout
+ * chunk not yet cached) flashed a blank screen. Mirrors the ProtectedRoute
+ * "Verifying your session" spinner so the whole entry feels like one loader.
+ */
+function RouteFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+    </div>
+  );
+}
 
 const MainLayout = lazy(async () => ({
   default: (await import('./components/layout/MainLayout')).MainLayout,
@@ -221,7 +236,7 @@ function App() {
               },
             }}
           />
-          <Suspense fallback={null}>
+          <Suspense fallback={<RouteFallback />}>
             <Routes>
               {/* Public routes */}
               <Route
