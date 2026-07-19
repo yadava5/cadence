@@ -124,8 +124,11 @@ export function CommandPalette() {
   const open = useCommandPaletteStore((s) => s.open);
   const setOpen = useCommandPaletteStore((s) => s.setOpen);
   const toggle = useCommandPaletteStore((s) => s.toggle);
+  const shortcutsEnabled = useSettingsStore((s) => s.keyboardShortcutsEnabled);
 
   useEffect(() => {
+    // ⌘K is a keyboard shortcut — respect the global toggle.
+    if (!shortcutsEnabled) return;
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
@@ -137,7 +140,7 @@ export function CommandPalette() {
     document.addEventListener('keydown', handler, { capture: true });
     return () =>
       document.removeEventListener('keydown', handler, { capture: true });
-  }, [toggle]);
+  }, [toggle, shortcutsEnabled]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
