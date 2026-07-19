@@ -741,7 +741,7 @@ function ParseShowcase() {
   // examples always advance (instantly under reduced motion, cross-faded
   // otherwise). Motion preference must never freeze the story on one example.
   useEffect(() => {
-    let swapTimer: ReturnType<typeof window.setTimeout> | undefined;
+    let swapTimer: number | undefined;
     const id = window.setInterval(() => {
       if (reduced) {
         setIndex((i) => (i + 1) % EXAMPLES.length);
@@ -1161,7 +1161,7 @@ function SignatureEnding() {
       setMark(true);
       return;
     }
-    const timers: ReturnType<typeof window.setTimeout>[] = [];
+    const timers: number[] = [];
     const io = new IntersectionObserver(
       (entries) => {
         if (!entries[0]?.isIntersecting || played.current) return;
@@ -1418,12 +1418,6 @@ export default function WelcomePage() {
           <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
             <CursorWordmark />
             <nav className="flex items-center gap-2">
-              <a
-                href="/system-card"
-                className="hidden rounded-lg px-3 py-2 font-mono text-[0.7rem] uppercase tracking-widest text-[#8a8f98] transition-colors hover:text-white sm:inline-block"
-              >
-                System Card
-              </a>
               <Link
                 to="/login"
                 className="rounded-lg border border-white/10 px-4 py-2 text-sm text-[#d6d8db] transition-colors hover:border-white/25 hover:text-white"
@@ -1468,12 +1462,6 @@ export default function WelcomePage() {
               >
                 Try the live demo <ArrowRight className="h-4 w-4" />
               </MagneticLink>
-              <a
-                href="/system-card"
-                className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-6 py-3 font-medium text-[#d6d8db] transition-colors hover:border-white/25 hover:text-white"
-              >
-                Read the System Card <ArrowRight className="h-4 w-4" />
-              </a>
             </div>
             <p className="mt-4 font-mono text-[0.65rem] uppercase tracking-widest text-[#63666c]">
               demo account · john@example.com / password123 · seeded with a real
@@ -1667,12 +1655,6 @@ export default function WelcomePage() {
               >
                 <CalendarClock className="h-4 w-4" /> Try the live demo
               </MagneticLink>
-              <a
-                href="/system-card"
-                className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-6 py-3 font-medium text-[#f7f8f8] transition-colors hover:border-white/30"
-              >
-                Read the System Card <ArrowRight className="h-4 w-4" />
-              </a>
             </div>
             <p className="mt-4 font-mono text-[0.65rem] uppercase tracking-widest text-[#63666c]">
               john@example.com / password123
@@ -1691,6 +1673,12 @@ export default function WelcomePage() {
           <p className="mt-3 font-mono text-[0.65rem] uppercase tracking-widest text-[#63666c]">
             task_flow · calendar &amp; tasks, in plain English · by Ayush Yadav
           </p>
+          <a
+            href="/system-card"
+            className="mt-3 inline-block font-mono text-[0.65rem] uppercase tracking-widest text-[#63666c] underline-offset-4 transition-colors hover:text-[#8a8f98] hover:underline"
+          >
+            System Card
+          </a>
         </footer>
       </div>
     </div>
