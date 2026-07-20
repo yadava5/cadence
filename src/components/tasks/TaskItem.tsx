@@ -466,8 +466,16 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         {/* Tags - Hidden in calendar mode */}
         {!calendarMode && (
           <div className={cn('mt-1 space-y-1', !hideCheckbox && 'ml-7')}>
-            {/* First row: Due date and other tags - Horizontal scrolling */}
-            <ScrollArea className="w-full" orientation="horizontal">
+            {/* First row: Due date and other tags - Horizontal scrolling.
+                The trailing fade hints that a chip (e.g. a priority tag)
+                may be scrolled just out of view when the row overflows a
+                narrow container (Kanban columns, mobile) - otherwise the
+                last chip looks abruptly clipped with no way to discover
+                it's reachable by scrolling. */}
+            <ScrollArea
+              className="w-full [mask-image:linear-gradient(to_right,black_calc(100%-20px),transparent_100%)] [-webkit-mask-image:linear-gradient(to_right,black_calc(100%-20px),transparent_100%)]"
+              orientation="horizontal"
+            >
               <div
                 className="flex flex-nowrap gap-1 pb-1 min-w-max"
                 style={{ WebkitOverflowScrolling: 'touch' }}
@@ -555,7 +563,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
             {/* Second row: Attachments preview (compact) - Horizontal scrolling */}
             {task.attachments && task.attachments.length > 0 && (
-              <ScrollArea className="w-full">
+              <ScrollArea className="w-full [mask-image:linear-gradient(to_right,black_calc(100%-20px),transparent_100%)] [-webkit-mask-image:linear-gradient(to_right,black_calc(100%-20px),transparent_100%)]">
                 <div
                   className="flex flex-nowrap items-center gap-1 pb-1 min-w-max"
                   style={{ WebkitOverflowScrolling: 'touch' }}
