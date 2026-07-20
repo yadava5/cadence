@@ -273,7 +273,10 @@ export const taskApi = {
               {
                 method: 'PUT',
                 headers: { 'Content-Type': mime, ...authHeaders() },
-                body: bytes,
+                // Cast needed: current @types/node's ambient Uint8Array
+                // generic shadows lib.dom's BodyInit overload resolution,
+                // even though a Uint8Array is a valid fetch body at runtime.
+                body: bytes as BodyInit,
               }
             );
             const putBody = await putRes
