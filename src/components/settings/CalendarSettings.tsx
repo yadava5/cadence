@@ -61,6 +61,7 @@ export function CalendarSettings() {
               options={MODE_OPTIONS}
               onValueChange={(mode) => setTimeRangeMode(mode as TimeRangeMode)}
               size="md"
+              showShortLabelsOnMobile={false}
             />
           </div>
 
