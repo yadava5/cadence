@@ -374,7 +374,19 @@
   padding: 8px 12px;
 }
 
-/* list event background inherits from table/page background */
+/* List rows also carry the generic `.fc-event` class (shared JS event
+   handling with the grid views), which otherwise paints them with the
+   colored-pill `background-color: var(--primary)` / `color:
+   var(--primary-foreground)` meant for month/week/day chips. That pairs a
+   theme-fixed dark pill background with the theme-aware `--foreground`
+   title color below, so in light mode the row reads as dark-on-dark
+   (unreadable) even though "list event background inherits from
+   table/page background" was always the intent here. Reset both so the
+   row falls back to the page background with theme-correct text. */
+.fc-list-event.fc-event {
+  background-color: transparent;
+  color: var(--foreground);
+}
 
 .fc-list-event:hover {
   background-color: oklch(from var(--accent) l c h / 0.5);
