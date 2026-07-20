@@ -421,9 +421,9 @@ export function GeneralSettings() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="flex items-center justify-between gap-4">
-            <div className="space-y-0.5">
-              <Label htmlFor="completion-control" className="whitespace-nowrap">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="space-y-0.5 min-w-0 flex-1">
+              <Label htmlFor="completion-control">
                 Task Completion Control
               </Label>
               <p className="text-sm text-muted-foreground">
@@ -431,7 +431,7 @@ export function GeneralSettings() {
                 view
               </p>
             </div>
-            <div className="min-w-40">
+            <div className="min-w-40 shrink-0">
               <Select
                 value={taskCompletionControl}
                 onValueChange={(v) =>
@@ -529,11 +529,9 @@ export function GeneralSettings() {
 
           <Separator />
 
-          <div className="flex items-center justify-between gap-4">
-            <Label htmlFor="default-view" className="whitespace-nowrap">
-              Default View
-            </Label>
-            <div className="min-w-40">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <Label htmlFor="default-view">Default View</Label>
+            <div className="min-w-40 shrink-0">
               <Select
                 value={defaultView}
                 onValueChange={(v) =>
@@ -563,15 +561,15 @@ export function GeneralSettings() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div>
+          <div className="flex flex-wrap items-center justify-between gap-3 p-4 border rounded-lg">
+            <div className="min-w-0">
               <h4 className="font-medium">Export Data</h4>
               <p className="text-sm text-muted-foreground">
                 Download all your tasks, events, and settings as JSON — or your
                 events as a calendar (.ics) file
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <Button
                 variant="outline"
                 onClick={handleExportIcs}
@@ -600,8 +598,8 @@ export function GeneralSettings() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between p-4 border border-destructive/20 rounded-lg bg-destructive/5">
-            <div>
+          <div className="flex flex-wrap items-center justify-between gap-3 p-4 border border-destructive/20 rounded-lg bg-destructive/5">
+            <div className="min-w-0">
               <h4 className="font-medium text-destructive">Delete Account</h4>
               <p className="text-sm text-muted-foreground">
                 Permanently delete your account and all data
@@ -613,7 +611,7 @@ export function GeneralSettings() {
                 setDeleteConfirmText('');
                 setDeleteDialogOpen(true);
               }}
-              className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+              className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground shrink-0"
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete
