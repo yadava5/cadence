@@ -17,6 +17,10 @@ const LazyEventCreationDialog = lazy(async () => ({
 const LazyEventDisplayDialog = lazy(async () => ({
   default: (await import('../dialogs/EventDisplayDialog')).EventDisplayDialog,
 }));
+const LazyScheduleMeetingDialog = lazy(async () => ({
+  default: (await import('../dialogs/ScheduleMeetingDialog'))
+    .ScheduleMeetingDialog,
+}));
 import type { CalendarEvent } from '@shared/types';
 import type FullCalendar from '@fullcalendar/react';
 
@@ -53,6 +57,7 @@ export const RightPane = ({
   // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [displayDialogOpen, setDisplayDialogOpen] = useState(false);
+  const [meetingDialogOpen, setMeetingDialogOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
     null
   );
@@ -82,6 +87,21 @@ export const RightPane = ({
   const handleCreateEvent = useCallback(() => {
     setInitialEventData(undefined);
     setCreateDialogOpen(true);
+  }, []);
+
+  /**
+   * Open the "Schedule a Google meeting" dialog from the calendar toolbar.
+   */
+  const handleScheduleMeeting = useCallback(() => {
+    setMeetingDialogOpen(true);
+  }, []);
+
+  // Open Settings (General → Connected accounts) without prop-drilling; the
+  // MainLayout listens for this event to reveal the settings dialog.
+  const openSettings = useCallback(() => {
+    window.dispatchEvent(
+      new CustomEvent('app:open-settings', { detail: { section: 'general' } })
+    );
   }, []);
 
   /**
@@ -220,6 +240,7 @@ export const RightPane = ({
           onPrevClick={handlePrevClick}
           onNextClick={handleNextClick}
           onCreateEvent={handleCreateEvent}
+          onScheduleMeeting={handleScheduleMeeting}
           calendarRef={calendarRef}
           searchValue={searchValue}
           onSearchChange={setSearchValue}
@@ -269,6 +290,17 @@ export const RightPane = ({
           onEdit={handleEditEvent}
         />
       </Suspense>
+
+      {/* Schedule a Google meeting (invite people + optional Meet link) */}
+      {meetingDialogOpen && (
+        <Suspense fallback={null}>
+          <LazyScheduleMeetingDialog
+            open={meetingDialogOpen}
+            onOpenChange={setMeetingDialogOpen}
+            onOpenSettings={openSettings}
+          />
+        </Suspense>
+      )}
     </div>
   );
 };
