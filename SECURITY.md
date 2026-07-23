@@ -10,7 +10,7 @@ We release patches for security vulnerabilities in the following versions:
 
 ## Reporting a Vulnerability
 
-We take the security of Taskflow Calendar seriously. If you believe you have found a security vulnerability, please report it to us as described below.
+We take the security of Cadence seriously. If you believe you have found a security vulnerability, please report it to us as described below.
 
 ### How to Report
 
@@ -18,7 +18,7 @@ We take the security of Taskflow Calendar seriously. If you believe you have fou
 
 Instead, please use GitHub's private vulnerability reporting feature:
 
-1. Go to the [Security tab](https://github.com/yadava5/taskflow-calendar/security) of this repository
+1. Go to the [Security tab](https://github.com/yadava5/cadence/security) of this repository
 2. Click "Report a vulnerability"
 3. Fill out the form with the details below
 
@@ -64,7 +64,7 @@ When contributing to this project, please:
 
 ## Security Features
 
-Taskflow Calendar implements the following security measures:
+Cadence implements the following security measures:
 
 - **Authentication**: JWT-based authentication with access/refresh token rotation
 - **Password Security**: Passwords are hashed using bcrypt
@@ -93,4 +93,4 @@ When we receive a security bug report, we will:
 4. Release new versions and update the changelog
 5. Announce the vulnerability (with appropriate credit to the reporter)
 
-Thank you for helping keep Taskflow Calendar and our users safe!
+Thank you for helping keep Cadence and our users safe!
