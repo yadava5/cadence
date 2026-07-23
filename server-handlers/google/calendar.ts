@@ -11,8 +11,9 @@
  *        deduped on ("userId","googleEventId").
  *
  * Security: the Google refresh token never leaves the server; requests
- * use the official google-auth-library client with the minimal
- * calendar.readonly scope.
+ * use the official google-auth-library client with the least-privilege
+ * calendar.events scope (read + write on events only — never full calendar
+ * management and never any Gmail access).
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
@@ -22,7 +23,12 @@ import {
 import { googleOAuthService } from '../../packages/backend/src/services/GoogleOAuthService.js';
 import { query } from '../../lib/config/database.js';
 
-const CAL_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
+// calendar.events grants read + write on the user's events — enough to run the
+// pull sync below AND to create meetings with attendees and Google Meet links
+// (see google/meeting.ts) — without full-calendar management or any Gmail
+// scope. Upgraded from calendar.readonly; existing read-only grants must
+// reconnect (the connect flow uses prompt=consent, so they re-consent cleanly).
+const CAL_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
 const GOOGLE_CAL_NAME = 'Google';
 const GOOGLE_CAL_COLOR = '#0f9d76';
 
