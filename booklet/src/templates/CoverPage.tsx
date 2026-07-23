@@ -8,7 +8,7 @@ import { WeekField } from "../visuals/WeekField";
  * story — a plain sentence resolving into typed chips that land on a MON–FRI
  * week (WeekField) — with a title block lower-left over a scrim and a vertical
  * mono margin callout. The one accent is emerald; the wordmark is the app's
- * `task_flow`.
+ * `cadence`, closed by the emerald caret that is the brand's downbeat.
  */
 export const CoverPage: React.FC = () => (
   <section
@@ -109,6 +109,8 @@ export const CoverPage: React.FC = () => (
     >
       <div
         style={{
+          display: "flex",
+          alignItems: "baseline",
           fontFamily: FONTS.MONO,
           fontSize: 12,
           fontWeight: 600,
@@ -116,9 +118,18 @@ export const CoverPage: React.FC = () => (
           color: COLORS.ON_DARK_MUTED,
         }}
       >
-        {COVER.wordmark.split("_")[0]}
-        <span style={{ color: COLORS.STEEL_SUBTLE }}>_</span>
-        {COVER.wordmark.split("_")[1]}
+        {COVER.wordmark}
+        <span
+          style={{
+            display: "inline-block",
+            width: 2,
+            height: 11,
+            marginLeft: 3,
+            borderRadius: 1,
+            background: COLORS.EMERALD_400,
+            transform: "translateY(1px)",
+          }}
+        />
       </div>
       <div
         style={{
@@ -130,7 +141,7 @@ export const CoverPage: React.FC = () => (
           color: COLORS.ON_DARK,
         }}
       >
-        Task<span style={{ color: COLORS.EMERALD_400 }}>Flow</span>
+        Cad<span style={{ color: COLORS.EMERALD_400 }}>ence</span>
       </div>
       <div
         style={{
