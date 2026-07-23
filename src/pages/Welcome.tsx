@@ -1416,7 +1416,7 @@ const RECEIPTS = [
 
 export default function WelcomePage() {
   return (
-    <div className="dark relative min-h-screen bg-[#0a0a0b] text-[#d6d8db]">
+    <div className="dark relative min-h-screen overflow-x-clip bg-[#0a0a0b] text-[#d6d8db]">
       <LivingBackground />
       <QuickParseEgg />
 
