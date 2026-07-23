@@ -7,6 +7,7 @@ import { Parser, ParseResult, ParsedTag, Conflict } from '@shared/types';
 import { ChronoDateParser } from './ChronoDateParser';
 import { PriorityParser } from './PriorityParser';
 import { CompromiseNLPParser } from './CompromiseNLPParser';
+import { HashtagParser } from './HashtagParser';
 
 export class SmartParser {
   private parsers: Parser[];
@@ -15,6 +16,7 @@ export class SmartParser {
     // Initialize parsers in priority order (highest priority first)
     this.parsers = [
       new ChronoDateParser(), // Priority 10: Dates/times
+      new HashtagParser(), // Priority 9: Explicit #hashtag labels
       new PriorityParser(), // Priority 8: Priorities
       new CompromiseNLPParser(), // Priority 6: NER and semantic analysis
     ].sort((a, b) => b.priority - a.priority);
