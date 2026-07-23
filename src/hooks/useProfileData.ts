@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useAuthStore } from '@/stores/authStore';
+import { useProfileOverridesStore } from '@/stores/profileOverridesStore';
 
 export interface NormalizedProfileData {
   id: string;
@@ -25,6 +26,7 @@ export interface ProfileFormData {
  */
 export function useProfileData(): NormalizedProfileData {
   const { user, googleUser, authMethod } = useAuthStore();
+  const overrides = useProfileOverridesStore((s) => s.overrides);
 
   return useMemo(() => {
     // Handle case where no auth method is set
@@ -52,7 +54,7 @@ export function useProfileData(): NormalizedProfileData {
       };
     }
 
-    return {
+    const base: NormalizedProfileData = {
       id: currentUser.id,
       name: currentUser.name || 'User',
       email: currentUser.email || 'user@example.com',
@@ -68,7 +70,19 @@ export function useProfileData(): NormalizedProfileData {
         ? (user as unknown as { createdAt?: string })?.createdAt
         : undefined,
     };
-  }, [user, googleUser, authMethod]);
+
+    // Merge locally-saved profile edits (Settings → Profile) over the
+    // auth-derived values so saved changes actually show and persist.
+    const ov = base.id ? overrides[base.id] : undefined;
+    if (!ov) return base;
+    return {
+      ...base,
+      name: ov.name?.trim() ? ov.name : base.name,
+      bio: ov.bio ?? base.bio,
+      timezone: ov.timezone ?? base.timezone,
+      picture: ov.picture ?? base.picture,
+    };
+  }, [user, googleUser, authMethod, overrides]);
 }
 
 /**
