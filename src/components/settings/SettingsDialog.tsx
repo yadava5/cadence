@@ -41,6 +41,25 @@ export function SettingsDialog({
     }
   }, [open, defaultSection]);
 
+  // Safety net: if a Radix modal-lifecycle race ever leaves the body
+  // pointer-events lock behind after this dialog closes (and no other modal is
+  // open), release it so the page never gets stuck unclickable. Mirrors the
+  // fix in CommandPalette.tsx (see commit 628a8fe) — the settings dialog opens
+  // nested dialogs (delete-account, and now schedule-meeting via the toolbar)
+  // that can trip the same footgun.
+  useEffect(() => {
+    if (open) return;
+    const t = window.setTimeout(() => {
+      const anyModalOpen = document.querySelector(
+        '[data-slot="dialog-content"][data-state="open"], [role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]'
+      );
+      if (!anyModalOpen && document.body.style.pointerEvents === 'none') {
+        document.body.style.pointerEvents = '';
+      }
+    }, 350);
+    return () => window.clearTimeout(t);
+  }, [open]);
+
   const renderContent = () => {
     switch (activeSection) {
       case 'general':
