@@ -128,10 +128,10 @@ const LeftPaneComponent: React.FC<LeftPaneProps> = ({ className }) => {
 
   // State and controls for collapsible SmartTaskInput (shown in calendar view)
   const {
-    calendarViewInputExpanded,
-    toggleCalendarViewInput,
-    taskViewMiniCalendarExpanded,
-    toggleTaskViewMiniCalendar,
+    taskViewInputExpanded,
+    toggleTaskViewInput,
+    calendarViewMiniCalendarExpanded,
+    toggleCalendarViewMiniCalendar,
     leftSmartInputTaskListId,
     setLeftSmartInputTaskListId,
     showSidebarTaskAnalytics,
@@ -165,14 +165,15 @@ const LeftPaneComponent: React.FC<LeftPaneProps> = ({ className }) => {
 
   const handleToggleSmartInput = useCallback(() => {
     setHasUserToggledSmartInput(true);
-    toggleCalendarViewInput();
-  }, [toggleCalendarViewInput]);
+    toggleTaskViewInput();
+  }, [toggleTaskViewInput]);
 
-  // Additional header content - SmartTaskInput wrapped in Collapsible in calendar view
+  // Additional header content - SmartTaskInput quick-add wrapped in a
+  // Collapsible, shown in task view so the left pane stays task-focused there.
   const additionalHeaderContent = useMemo(() => {
-    if (currentView !== 'calendar') return null;
+    if (currentView !== 'task') return null;
     return (
-      <Collapsible open={calendarViewInputExpanded}>
+      <Collapsible open={taskViewInputExpanded}>
         <CollapsibleContent
           className={
             'overflow-hidden ' +
@@ -224,7 +225,7 @@ const LeftPaneComponent: React.FC<LeftPaneProps> = ({ className }) => {
     );
   }, [
     currentView,
-    calendarViewInputExpanded,
+    taskViewInputExpanded,
     hasUserToggledSmartInput,
     memoizedHandleAddTask,
     taskGroups,
@@ -296,25 +297,27 @@ const LeftPaneComponent: React.FC<LeftPaneProps> = ({ className }) => {
 
   const handleToggleMiniCalendar = useCallback(() => {
     setHasUserToggledMiniCalendar(true);
-    toggleTaskViewMiniCalendar();
-  }, [toggleTaskViewMiniCalendar]);
+    toggleCalendarViewMiniCalendar();
+  }, [toggleCalendarViewMiniCalendar]);
 
-  // Header controls: collapse toggle button (identical styling/behavior) per view
+  // Header controls: collapse toggle button (identical styling/behavior) per
+  // view. Each control lives with the content it toggles: the mini-calendar
+  // toggle in calendar view, the quick-add-input toggle in task view.
   const rightHeaderControls = useMemo(() => {
-    if (currentView === 'task') {
+    if (currentView === 'calendar') {
       return (
         <Button
           variant="ghost"
           size="icon"
           aria-label={
-            taskViewMiniCalendarExpanded
+            calendarViewMiniCalendarExpanded
               ? 'Hide mini calendar'
               : 'Show mini calendar'
           }
           className="h-8 w-8"
           onClick={handleToggleMiniCalendar}
         >
-          {taskViewMiniCalendarExpanded ? (
+          {calendarViewMiniCalendarExpanded ? (
             <CalendarArrowUp className="h-4 w-4" />
           ) : (
             <CalendarArrowDown className="h-4 w-4" />
@@ -322,16 +325,16 @@ const LeftPaneComponent: React.FC<LeftPaneProps> = ({ className }) => {
         </Button>
       );
     }
-    if (currentView === 'calendar') {
+    if (currentView === 'task') {
       return (
         <Button
           variant="ghost"
           size="icon"
-          aria-label={calendarViewInputExpanded ? 'Hide input' : 'Show input'}
+          aria-label={taskViewInputExpanded ? 'Hide input' : 'Show input'}
           className="h-8 w-8"
           onClick={handleToggleSmartInput}
         >
-          {calendarViewInputExpanded ? (
+          {taskViewInputExpanded ? (
             <ArrowUpToLine className="h-4 w-4" />
           ) : (
             <ArrowDownToLine className="h-4 w-4" />
@@ -342,15 +345,16 @@ const LeftPaneComponent: React.FC<LeftPaneProps> = ({ className }) => {
     return null;
   }, [
     currentView,
-    taskViewMiniCalendarExpanded,
+    calendarViewMiniCalendarExpanded,
     handleToggleMiniCalendar,
-    calendarViewInputExpanded,
+    taskViewInputExpanded,
     handleToggleSmartInput,
   ]);
 
-  // Main content - TaskList in calendar view, EventOverview in task view
+  // Main content - TaskList in task view; mini calendar + EventOverview in
+  // calendar view, so the left pane mirrors the active top-level view.
   const mainContent = useMemo(() => {
-    return currentView === 'calendar' ? (
+    return currentView === 'task' ? (
       <Suspense
         fallback={<div className="h-40 animate-pulse bg-muted rounded-md" />}
       >
@@ -377,7 +381,7 @@ const LeftPaneComponent: React.FC<LeftPaneProps> = ({ className }) => {
       </Suspense>
     ) : (
       <div className="space-y-3">
-        <Collapsible open={taskViewMiniCalendarExpanded}>
+        <Collapsible open={calendarViewMiniCalendarExpanded}>
           <CollapsibleContent
             className={
               'overflow-hidden ' +
@@ -439,7 +443,7 @@ const LeftPaneComponent: React.FC<LeftPaneProps> = ({ className }) => {
     showCreateTaskDialog,
     memoizedSetShowCreateTaskDialog,
     today,
-    taskViewMiniCalendarExpanded,
+    calendarViewMiniCalendarExpanded,
     hasUserToggledMiniCalendar,
   ]);
 
