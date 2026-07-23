@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="docs/assets/banner-light.svg#gh-light-mode-only" width="800" alt="Taskflow Calendar">
-  <img src="docs/assets/banner-dark.svg#gh-dark-mode-only" width="800" alt="Taskflow Calendar">
+  <img src="docs/assets/banner-light.svg#gh-light-mode-only" width="800" alt="Cadence">
+  <img src="docs/assets/banner-dark.svg#gh-dark-mode-only" width="800" alt="Cadence">
 </p>
 
-<h1 align="center">Taskflow Calendar</h1>
+<h1 align="center">Cadence</h1>
 
 <p align="center">
   <strong>A production-ready full-stack calendar and task management platform with intelligent NLP, multi-calendar support, and real-time conflict detection.</strong>
@@ -29,7 +29,7 @@
 
 ## Overview
 
-Taskflow Calendar is a comprehensive task and calendar management application built with modern full-stack technologies. It features natural language processing for smart task input, multi-pane task management, drag-and-drop scheduling, and a robust serverless API architecture.
+Cadence is a comprehensive task and calendar management application built with modern full-stack technologies. It features natural language processing for smart task input, multi-pane task management, drag-and-drop scheduling, and a robust serverless API architecture.
 
 ### Key Highlights
 
@@ -376,8 +376,8 @@ npm run test:backend:coverage
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/taskflow-calendar.git
-cd taskflow-calendar
+git clone https://github.com/yadava5/cadence.git
+cd cadence
 
 # Install dependencies
 npm install
@@ -430,7 +430,7 @@ BLOB_READ_WRITE_TOKEN=your-vercel-blob-token
 ## Project Structure
 
 ```
-taskflow-calendar/
+cadence/
 ├── src/                      # Frontend React application
 │   ├── components/           # UI components (180+ files)
 │   │   ├── calendar/         # Calendar views and controls
