@@ -153,6 +153,38 @@ describe('Middleware Composition', () => {
       );
     });
 
+    it('propagates a downstream throw even when an upstream middleware calls next() without awaiting it', async () => {
+      // Regression: cors/rateLimit call `next()` bare as their last line, and
+      // authenticateJWT throws on a missing/expired token. The old composer
+      // awaited only the upstream middleware's own (synchronous) return, so the
+      // downstream rejection was orphaned — the composed promise resolved
+      // WITHOUT the error and WITHOUT a response, so the request hung until the
+      // platform timeout instead of returning 401. The composer must instead
+      // settle by rejecting with the downstream error.
+      const execOrder: number[] = [];
+
+      const bareNextUpstream: Middleware = async (_req, _res, next) => {
+        execOrder.push(1);
+        next(); // NOT awaited or returned — mirrors cors/rateLimit
+      };
+
+      const throwingAuth: Middleware = async () => {
+        execOrder.push(2);
+        throw new Error('Unauthorized'); // mirrors authenticateJWT
+      };
+
+      const req = createMockRequest() as AuthenticatedRequest;
+      const res = createMockResponse();
+
+      const composed = composeMiddleware(bareNextUpstream, throwingAuth);
+
+      await expect(composed(req, res, mockNext)).rejects.toThrow(
+        'Unauthorized'
+      );
+      expect(execOrder).toEqual([1, 2]);
+      expect(mockNext).not.toHaveBeenCalled();
+    });
+
     it('should work with empty middleware array', async () => {
       const req = createMockRequest() as AuthenticatedRequest;
       const res = createMockResponse();
