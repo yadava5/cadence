@@ -738,23 +738,48 @@ export class TaskService extends BaseService<
 
   /**
    * Delete task
+   *
+   * SECURITY: the delete is scoped to the authenticated user so one tenant can
+   * never delete another tenant's task by id (IDOR). Returns false when no row
+   * matched (not found OR not owned), which the route maps to a 404 — never a
+   * silent cross-tenant delete. The authenticated route always supplies
+   * context.userId.
    */
-  async delete(id: string): Promise<boolean> {
-    // Ownership already validated via routes/use of service; keep as is
-    await query('DELETE FROM tasks WHERE id = $1', [id], this.db);
-    return true;
+  async delete(id: string, context?: ServiceContext): Promise<boolean> {
+    const params: unknown[] = [id];
+    let where = 'id = $1';
+    if (context?.userId) {
+      params.push(context.userId);
+      where += ` AND "userId" = $${params.length}`;
+    }
+    const res = await query(
+      `DELETE FROM tasks WHERE ${where}`,
+      params,
+      this.db
+    );
+    return (res.rowCount ?? 0) > 0;
   }
 
   /**
    * Find task by id with relations
+   *
+   * SECURITY: scoped to the authenticated user so GET /tasks/:id can never
+   * return another tenant's task (IDOR). The authenticated route always
+   * supplies context.userId.
    */
   async findById(
     id: string,
     context?: ServiceContext
   ): Promise<TaskEntity | null> {
+    const params: unknown[] = [id];
+    let where = 'id = $1';
+    if (context?.userId) {
+      params.push(context.userId);
+      where += ` AND "userId" = $${params.length}`;
+    }
     const res = await query<TaskRow>(
-      'SELECT * FROM tasks WHERE id = $1 LIMIT 1',
-      [id],
+      `SELECT * FROM tasks WHERE ${where} LIMIT 1`,
+      params,
       this.db
     );
     if (res.rowCount === 0) return null;
