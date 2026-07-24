@@ -104,6 +104,54 @@ export class EventService extends BaseService<
   }
 
   /**
+   * Find an event by id, scoped to the authenticated user.
+   *
+   * SECURITY: without this override the inherited BaseService.findById would
+   * return ANY event by id (cross-tenant IDOR read of another user's calendar
+   * data). The authenticated route always supplies context.userId.
+   */
+  async findById(
+    id: string,
+    context?: ServiceContext
+  ): Promise<EventEntity | null> {
+    const params: unknown[] = [id];
+    let where = 'id = $1';
+    if (context?.userId) {
+      params.push(context.userId);
+      where += ` AND "userId" = $${params.length}`;
+    }
+    const res = await query(
+      `SELECT * FROM events WHERE ${where} LIMIT 1`,
+      params,
+      this.db
+    );
+    if (res.rowCount === 0) return null;
+    return this.transformEntity(res.rows[0]);
+  }
+
+  /**
+   * Delete an event, scoped to the authenticated user.
+   *
+   * SECURITY: without this override the inherited BaseService.delete would
+   * delete ANY event by id (cross-tenant IDOR delete). Returns false when no
+   * row matched (not found OR not owned) → route responds 404.
+   */
+  async delete(id: string, context?: ServiceContext): Promise<boolean> {
+    const params: unknown[] = [id];
+    let where = 'id = $1';
+    if (context?.userId) {
+      params.push(context.userId);
+      where += ` AND "userId" = $${params.length}`;
+    }
+    const res = await query(
+      `DELETE FROM events WHERE ${where}`,
+      params,
+      this.db
+    );
+    return (res.rowCount ?? 0) > 0;
+  }
+
+  /**
    * Override create to satisfy required relations (user, calendar)
    */
   async create(
