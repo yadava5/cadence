@@ -4,6 +4,14 @@ import {
   asyncHandler,
   sendSuccess,
 } from '../../lib/middleware/errorHandler.js';
+import {
+  composeMiddleware,
+  corsMiddleware,
+  requestIdMiddleware,
+  rateLimitPresets,
+  authenticateJWT,
+} from '../../lib/middleware/index.js';
+import type { AuthenticatedRequest } from '../../lib/types/api.js';
 
 interface BlobPutResult {
   url: string;
@@ -227,5 +235,18 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   }
 }
 
-export default asyncHandler(handler);
+// Uploads write public-read Blobs, so require auth + rate-limit — otherwise the
+// endpoint is an open write / abuse & cost vector (flagged by the multi-tenant
+// audit). The frontend already sends `Authorization: Bearer <jwt>` on this PUT
+// (src/services/api/tasks.ts). composeMiddleware runs cors → requestId →
+// rate-limit → auth, then the streaming handler; none of them consume the body
+// stream, so the raw `req.on('data')` read below still works.
+export default asyncHandler(async (req: VercelRequest, res: VercelResponse) => {
+  await composeMiddleware(
+    corsMiddleware(),
+    requestIdMiddleware(),
+    rateLimitPresets.api,
+    authenticateJWT()
+  )(req as AuthenticatedRequest, res, () => handler(req, res));
+});
 export { handler };
