@@ -117,8 +117,10 @@ describe('CalendarService', () => {
       );
 
       expect(mockedQuery).toHaveBeenCalledWith(
-        expect.stringContaining('SELECT * FROM calendars WHERE id = $1'),
-        [mockCalendar.id],
+        expect.stringContaining(
+          'SELECT * FROM calendars WHERE id = $1 AND "userId" = $2'
+        ),
+        [mockCalendar.id, mockUserId],
         expect.anything()
       );
       expect(result).toEqual(mockCalendar);
@@ -135,14 +137,23 @@ describe('CalendarService', () => {
       expect(result).toBeNull();
     });
 
-    it('should query by id regardless of context', async () => {
+    it('should scope the lookup to the authenticated user (no cross-tenant read)', async () => {
+      // SECURITY: findById filters by the caller's userId. Another user's
+      // calendar yields no row → null, guarding against a cross-tenant IDOR
+      // read.
       mockedQuery.mockResolvedValueOnce(createQueryResult([]));
 
-      await calendarService.findById('other-user-calendar-id', mockContext);
+      const result = await calendarService.findById(
+        'other-user-calendar-id',
+        mockContext
+      );
 
+      expect(result).toBeNull();
       expect(mockedQuery).toHaveBeenCalledWith(
-        expect.stringContaining('SELECT * FROM calendars WHERE id = $1'),
-        ['other-user-calendar-id'],
+        expect.stringContaining(
+          'SELECT * FROM calendars WHERE id = $1 AND "userId" = $2'
+        ),
+        ['other-user-calendar-id', mockUserId],
         expect.anything()
       );
     });
