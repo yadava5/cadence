@@ -8,6 +8,7 @@ import {
   verifyToken,
   extractTokenFromHeader,
 } from '../../packages/backend/src/utils/jwt.js';
+import { runWithRls } from '../config/rlsContext.js';
 
 /**
  * JWT authentication middleware
@@ -47,7 +48,11 @@ export function authenticateJWT(): Middleware {
         name: decoded.email.split('@')[0], // Extract name from email as fallback
       };
 
-      next();
+      // Enter the RLS context for the entire downstream chain + handler.
+      // `composeMiddleware` starts the downstream chain synchronously inside
+      // this `next()` call, so every DB query issued while handling the request
+      // runs with `app.user_id` bound to this verified user (see database.ts).
+      return runWithRls(decoded.userId, () => next());
     } catch (error) {
       if (error instanceof Error) {
         if (error.message === 'TOKEN_EXPIRED') {
@@ -121,7 +126,9 @@ export function devAuth(): Middleware {
         name: 'Dev User',
       };
     }
-    next();
+    // Bind the RLS context (real or dev user) for the downstream chain so the
+    // local dev server exercises the same GUC path as production.
+    return runWithRls(req.user?.id ?? null, () => next());
   };
 }
 
