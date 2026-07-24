@@ -23,20 +23,39 @@ export function composeMiddleware(...middlewares: Middleware[]) {
   return async (
     req: AuthenticatedRequest,
     res: VercelResponse,
-    finalHandler: () => void
+    finalHandler: () => void | Promise<void>
   ) => {
     let index = 0;
 
-    async function next(): Promise<void> {
+    async function run(): Promise<void> {
       if (index >= middlewares.length) {
-        return finalHandler();
+        await finalHandler();
+        return;
       }
 
       const middleware = middlewares[index++];
+
+      // The downstream chain is started by `next()`. We keep a handle to it so
+      // we can await it even when a middleware calls `next()` WITHOUT
+      // awaiting/returning it (e.g. a synchronous `next();` as its last line).
+      // Historically the pipeline only awaited the middleware's own return
+      // value, so a downstream rejection — like `authenticateJWT` throwing on a
+      // missing/expired/invalid token — was orphaned: the error never reached
+      // `asyncHandler`'s catch, no response was sent, and the request hung
+      // until the platform timeout instead of returning 401. Awaiting the
+      // captured downstream promise here closes that hole for every current
+      // and future middleware, regardless of how it calls `next()`.
+      let downstream: Promise<void> | undefined;
+      const next = (): Promise<void> => {
+        if (!downstream) downstream = run();
+        return downstream;
+      };
+
       await middleware(req, res, next);
+      if (downstream) await downstream;
     }
 
-    await next();
+    await run();
   };
 }
 
