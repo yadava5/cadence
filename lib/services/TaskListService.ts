@@ -88,6 +88,32 @@ export class TaskListService extends BaseService<
   }
 
   /**
+   * Find a task list by id, scoped to the authenticated user.
+   *
+   * SECURITY: without this override the inherited BaseService.findById would
+   * return ANY task list by id (cross-tenant IDOR read). The authenticated
+   * route always supplies context.userId.
+   */
+  async findById(
+    id: string,
+    context?: ServiceContext
+  ): Promise<TaskListEntity | null> {
+    const params: unknown[] = [id];
+    let where = 'id = $1';
+    if (context?.userId) {
+      params.push(context.userId);
+      where += ` AND "userId" = $${params.length}`;
+    }
+    const res = await query(
+      `SELECT * FROM task_lists WHERE ${where} LIMIT 1`,
+      params,
+      this.db
+    );
+    if (res.rowCount === 0) return null;
+    return this.transformEntity(res.rows[0]);
+  }
+
+  /**
    * Update task list by ID
    */
   async update(
