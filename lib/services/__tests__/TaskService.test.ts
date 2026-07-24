@@ -193,24 +193,19 @@ describe('TaskService', () => {
       expect(result).toBeNull();
     });
 
-    it('should return task even if owned by different user (no ownership check in findById)', async () => {
-      // findById does not check ownership - it returns any task by ID
-      // Ownership checks should be done at the route/API level
-      const otherUserTask = { ...mockTask, userId: 'other-user' };
-
-      // SELECT query
-      mockedQuery.mockResolvedValueOnce(createQueryResult([otherUserTask]));
-      // enrichEntities: task lists (uses cache key with context userId)
-      mockedQuery.mockResolvedValueOnce(createQueryResult([mockTaskList]));
-      // enrichEntities: attachments
-      mockedQuery.mockResolvedValueOnce(createQueryResult([]));
-      // enrichEntities: tags
+    it('should not return a task owned by a different user (scoped by userId)', async () => {
+      // SECURITY: findById is scoped to the authenticated user. A task owned by
+      // another user yields no row, so the result is null — guarding against a
+      // cross-tenant IDOR read. Ownership is enforced in the query itself, not
+      // only at the route level.
       mockedQuery.mockResolvedValueOnce(createQueryResult([]));
 
       const result = await taskService.findById('task-123', mockContext);
 
-      expect(result).not.toBeNull();
-      expect(result?.userId).toBe('other-user');
+      expect(result).toBeNull();
+      const [sql, params] = mockedQuery.mock.calls[0];
+      expect(sql).toContain('"userId" = $2');
+      expect(params).toEqual(['task-123', 'user-123']);
     });
   });
 
@@ -382,22 +377,29 @@ describe('TaskService', () => {
   });
 
   describe('delete', () => {
-    it('should delete task', async () => {
-      // Mock DELETE query
+    it('should delete a task owned by the user', async () => {
+      // Scoped DELETE matches one row → true.
       mockedQuery.mockResolvedValueOnce(createQueryResult([], 1));
 
       const result = await taskService.delete('task-123', mockContext);
 
       expect(result).toBe(true);
+      const [sql, params] = mockedQuery.mock.calls[0];
+      expect(sql).toContain(
+        'DELETE FROM tasks WHERE id = $1 AND "userId" = $2'
+      );
+      expect(params).toEqual(['task-123', 'user-123']);
     });
 
-    it('should return true even for non-existent task (no ownership check in delete)', async () => {
+    it('should return false when deleting a task not owned by the user', async () => {
+      // SECURITY: the DELETE is scoped to the authenticated user. Another
+      // user's (or a non-existent) task matches no row → false, which the route
+      // maps to 404. Guards against a cross-tenant IDOR delete.
       mockedQuery.mockResolvedValueOnce(createQueryResult([], 0));
 
       const result = await taskService.delete('non-existent', mockContext);
 
-      // delete() always returns true in current implementation
-      expect(result).toBe(true);
+      expect(result).toBe(false);
     });
   });
 
