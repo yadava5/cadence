@@ -224,8 +224,10 @@ describe('EventService', () => {
       const result = await eventService.findById(mockEvent.id, mockContext);
 
       expect(mockedQuery).toHaveBeenCalledWith(
-        expect.stringContaining('SELECT * FROM events WHERE id = $1'),
-        [mockEvent.id],
+        expect.stringContaining(
+          'SELECT * FROM events WHERE id = $1 AND "userId" = $2'
+        ),
+        [mockEvent.id, mockUserId],
         expect.anything()
       );
       expect(result).toEqual(mockEvent);
@@ -242,14 +244,22 @@ describe('EventService', () => {
       expect(result).toBeNull();
     });
 
-    it('should query by id regardless of context', async () => {
+    it('should scope the lookup to the authenticated user (no cross-tenant read)', async () => {
+      // SECURITY: findById filters by the caller's userId. Another user's event
+      // yields no row → null, guarding against a cross-tenant IDOR read.
       mockedQuery.mockResolvedValueOnce(createQueryResult([]));
 
-      await eventService.findById('other-user-event-id', mockContext);
+      const result = await eventService.findById(
+        'other-user-event-id',
+        mockContext
+      );
 
+      expect(result).toBeNull();
       expect(mockedQuery).toHaveBeenCalledWith(
-        expect.stringContaining('SELECT * FROM events WHERE id = $1'),
-        ['other-user-event-id'],
+        expect.stringContaining(
+          'SELECT * FROM events WHERE id = $1 AND "userId" = $2'
+        ),
+        ['other-user-event-id', mockUserId],
         expect.anything()
       );
     });
@@ -618,8 +628,10 @@ describe('EventService', () => {
 
       expect(result).toBe(true);
       expect(mockedQuery).toHaveBeenCalledWith(
-        expect.stringContaining('DELETE FROM events WHERE id = $1'),
-        [eventId],
+        expect.stringContaining(
+          'DELETE FROM events WHERE id = $1 AND "userId" = $2'
+        ),
+        [eventId, mockUserId],
         expect.anything()
       );
     });
@@ -633,20 +645,28 @@ describe('EventService', () => {
 
       expect(result).toBe(true);
       expect(mockedQuery).toHaveBeenCalledWith(
-        expect.stringContaining('DELETE FROM events WHERE id = $1'),
-        [recurringEventId],
+        expect.stringContaining(
+          'DELETE FROM events WHERE id = $1 AND "userId" = $2'
+        ),
+        [recurringEventId, mockUserId],
         expect.anything()
       );
     });
 
-    it('should delete by id regardless of user context', async () => {
-      mockedQuery.mockResolvedValueOnce(createQueryResult([], 1));
+    it('should not delete an event owned by another user (scoped by userId)', async () => {
+      // SECURITY: the DELETE is scoped to the caller's userId. Another user's
+      // event matches no row → false (route maps to 404), guarding against a
+      // cross-tenant IDOR delete.
+      mockedQuery.mockResolvedValueOnce(createQueryResult([], 0));
 
-      await eventService.delete('other-user-event', mockContext);
+      const result = await eventService.delete('other-user-event', mockContext);
 
+      expect(result).toBe(false);
       expect(mockedQuery).toHaveBeenCalledWith(
-        expect.stringContaining('DELETE FROM events WHERE id = $1'),
-        ['other-user-event'],
+        expect.stringContaining(
+          'DELETE FROM events WHERE id = $1 AND "userId" = $2'
+        ),
+        ['other-user-event', mockUserId],
         expect.anything()
       );
     });
