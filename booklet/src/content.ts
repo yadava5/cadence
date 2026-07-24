@@ -34,8 +34,8 @@ export const BRAND = {
   subtitle: "Type it the way you'd say it. It lands where it belongs.",
   author: "Ayush Yadav",
   year: "2026",
-  liveUrl: "taskflow-calendar-ashy.vercel.app",
-  qrTarget: "https://taskflow-calendar-ashy.vercel.app",
+  liveUrl: "usecadenceapp.vercel.app",
+  qrTarget: "https://usecadenceapp.vercel.app",
 } as const;
 
 export const MASTHEAD = {
@@ -581,13 +581,13 @@ export const BUILD = {
     headline: "Type it.",
     tagline: "Run a real sentence through all three stages and watch it land on the week — in your browser.",
     liveLabel: "LIVE WEB APP",
-    liveUrl: "taskflow-calendar-ashy.vercel.app",
+    liveUrl: "usecadenceapp.vercel.app",
     spaceLabel: "DEMO ACCOUNT",
     spaceUrl: "john@example.com · password123",
     leftArrowLabel: "open it",
     rightArrowLabel: "sign in, seeded",
     microNote: "one sentence · three stages · zero forms",
-    qrTarget: "https://taskflow-calendar-ashy.vercel.app",
+    qrTarget: "https://usecadenceapp.vercel.app",
     qrCaption: "scan to open the live app",
     alsoNote:
       "No install — it runs in your browser. The demo account is seeded with a real week, so the calendar is not empty when you land.",
