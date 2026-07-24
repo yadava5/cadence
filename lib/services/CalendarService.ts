@@ -81,6 +81,32 @@ export class CalendarService extends BaseService<
     return 'Calendar';
   }
 
+  /**
+   * Find a calendar by id, scoped to the authenticated user.
+   *
+   * SECURITY: without this override the inherited BaseService.findById would
+   * return ANY calendar by id (cross-tenant IDOR read). The authenticated route
+   * always supplies context.userId.
+   */
+  async findById(
+    id: string,
+    context?: ServiceContext
+  ): Promise<CalendarEntity | null> {
+    const params: unknown[] = [id];
+    let where = 'id = $1';
+    if (context?.userId) {
+      params.push(context.userId);
+      where += ` AND "userId" = $${params.length}`;
+    }
+    const res = await query(
+      `SELECT * FROM calendars WHERE ${where} LIMIT 1`,
+      params,
+      this.db
+    );
+    if (res.rowCount === 0) return null;
+    return this.transformEntity(res.rows[0]);
+  }
+
   protected buildWhereClause(
     filters: CalendarFilters,
     context?: ServiceContext
