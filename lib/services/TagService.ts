@@ -263,19 +263,28 @@ export class TagService extends BaseService<
    */
   protected async validateCreate(
     data: CreateTagDTO,
-    _context?: ServiceContext
+    context?: ServiceContext
   ): Promise<void> {
-    void _context;
     if (!data.name?.trim()) {
       throw new Error('VALIDATION_ERROR: Tag name is required');
     }
 
-    // Check for duplicate tag name (tags are global, not user-specific)
-    const existingTag = await query(
-      'SELECT id FROM tags WHERE name = $1 LIMIT 1',
-      [data.name.trim().toLowerCase()],
-      this.db
-    );
+    // Check for duplicate tag name. Tags are per-user, so uniqueness is scoped
+    // to the owning user (RLS also enforces this at the DB layer). Scoping the
+    // check by "userId" is defense-in-depth and keeps the dup-check correct in
+    // local dev where RLS may be off.
+    const userId = context?.userId;
+    const existingTag = userId
+      ? await query(
+          'SELECT id FROM tags WHERE name = $1 AND "userId" = $2 LIMIT 1',
+          [data.name.trim().toLowerCase(), userId],
+          this.db
+        )
+      : await query(
+          'SELECT id FROM tags WHERE name = $1 LIMIT 1',
+          [data.name.trim().toLowerCase()],
+          this.db
+        );
 
     if (existingTag.rowCount > 0) {
       throw new Error('VALIDATION_ERROR: Tag name already exists');
@@ -311,18 +320,25 @@ export class TagService extends BaseService<
     data: UpdateTagDTO,
     context?: ServiceContext
   ): Promise<void> {
-    void context;
     if (data.name !== undefined && !data.name?.trim()) {
       throw new Error('VALIDATION_ERROR: Tag name cannot be empty');
     }
 
-    // Check for duplicate name if name is being updated
+    // Check for duplicate name if name is being updated. Scoped per-user (see
+    // validateCreate) for defense-in-depth alongside RLS.
     if (data.name) {
-      const existingTag = await query(
-        'SELECT id FROM tags WHERE name = $1 AND id <> $2 LIMIT 1',
-        [data.name.trim().toLowerCase(), id],
-        this.db
-      );
+      const userId = context?.userId;
+      const existingTag = userId
+        ? await query(
+            'SELECT id FROM tags WHERE name = $1 AND id <> $2 AND "userId" = $3 LIMIT 1',
+            [data.name.trim().toLowerCase(), id, userId],
+            this.db
+          )
+        : await query(
+            'SELECT id FROM tags WHERE name = $1 AND id <> $2 LIMIT 1',
+            [data.name.trim().toLowerCase(), id],
+            this.db
+          );
       if (existingTag.rowCount > 0) {
         throw new Error('VALIDATION_ERROR: Tag name already exists');
       }
@@ -364,11 +380,21 @@ export class TagService extends BaseService<
 
       await this.validateCreate(data, context);
 
+      // Tags are per-user and the tags table is FORCE RLS'd on "userId"; an
+      // INSERT without the owner set is rejected by the WITH CHECK policy, so
+      // require an authenticated user rather than writing an orphan row.
+      const userId = context?.userId;
+      if (!userId) {
+        throw new Error(
+          'VALIDATION_ERROR: Tag creation requires an authenticated user'
+        );
+      }
+
       const inserted = await query(
-        `INSERT INTO tags (id, name, type, color)
-         VALUES (gen_random_uuid()::text, $1, $2, $3)
+        `INSERT INTO tags (id, name, type, color, "userId")
+         VALUES (gen_random_uuid()::text, $1, $2, $3, $4)
          RETURNING *`,
-        [data.name.trim().toLowerCase(), data.type, data.color || null],
+        [data.name.trim().toLowerCase(), data.type, data.color || null, userId],
         this.db
       );
       const row = inserted.rows[0];
@@ -441,11 +467,20 @@ export class TagService extends BaseService<
       this.log('findOrCreate', { data }, context);
 
       const normalizedName = data.name.trim().toLowerCase();
-      const existingTag = await query(
-        'SELECT * FROM tags WHERE name = $1 LIMIT 1',
-        [normalizedName],
-        this.db
-      );
+      // Per-user dedup: only match an existing tag owned by the same user (RLS
+      // enforces this too; scoping here keeps local/dev correct without RLS).
+      const userId = context?.userId;
+      const existingTag = userId
+        ? await query(
+            'SELECT * FROM tags WHERE name = $1 AND "userId" = $2 LIMIT 1',
+            [normalizedName, userId],
+            this.db
+          )
+        : await query(
+            'SELECT * FROM tags WHERE name = $1 LIMIT 1',
+            [normalizedName],
+            this.db
+          );
       if (existingTag.rowCount > 0) {
         const row = existingTag.rows[0];
         this.log('findOrCreate:found', { id: row.id }, context);

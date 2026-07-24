@@ -29,7 +29,8 @@ model User {
   taskLists TaskList[]
   tasks     Task[]
   events    Event[]
-  
+  tags      Tag[]
+
   @@map("users")
 }
 
@@ -147,12 +148,19 @@ model Task {
 
 model Tag {
   id    String  @id @default(cuid())
-  name  String  @unique
+  name  String
   type  TagType
   color String?
 
+  // Per-user ownership: tags are scoped to the owning user (RLS-enforced), so
+  // the same name may exist once per user rather than once globally.
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   tasks TaskTag[]
 
+  @@unique([userId, name])
+  @@index([userId])
   @@index([type])
   @@index([name])
   @@map("tags")
