@@ -3,6 +3,7 @@
  */
 import { Pool, types, type PoolClient, type QueryResult } from 'pg';
 import { SUPABASE_CA } from './supabaseCA.js';
+import { getRlsUserId } from './rlsContext.js';
 
 /**
  * TLS for the DB connection. Against Supabase we pin the Supabase Root
@@ -129,33 +130,131 @@ function isTransientConnectionError(error: unknown): boolean {
   );
 }
 
-// Simple query helper
+// Distinguish a real transaction client (a PoolClient checked out by
+// `withTransaction`) from the pool. Services pass `this.db` — which IS the Pool
+// — as the 3rd `client` arg on every call, so a Pool passed here must be
+// treated identically to "no client" (route it through the RLS GUC path);
+// only a genuine PoolClient means "caller already owns a transaction with the
+// GUC set", so we run on it directly.
+const isPool = (c: SqlClient): c is Pool => c instanceof Pool;
+
+// Simple query helper.
+//
+// RLS wiring: tenant tables enforce FORCE ROW LEVEL SECURITY keyed on the
+// transaction-local `app.user_id` GUC. A plain pooled autocommit query cannot
+// carry that GUC safely (the pooler shares physical connections across
+// tenants), so when an RLS identity is bound to the async context we run the
+// statement inside a short transaction that sets `app.user_id` locally, runs
+// the query, and commits — the GUC is discarded at COMMIT and never leaks.
+//
+// When no identity is bound (pre-auth login/register, health checks, or the
+// non-RLS auth pool paths) we keep the original plain-pooled behaviour so those
+// flows are unaffected. Under FORCE RLS such a query sees no rows / is rejected
+// on the tenant tables, which is the intended fail-closed posture.
 export async function query<T = unknown>(
   sql: string,
   params: unknown[] = [],
   client?: SqlClient
 ): Promise<QueryResult<T>> {
-  if (client) {
+  // A real transaction client already runs inside a BEGIN whose GUC was set at
+  // transaction start (see withTransaction) — use it directly, and never retry
+  // (a mid-transaction reconnect would be incorrect).
+  if (client && !isPool(client)) {
     return (client as PoolClient).query<T>(sql, params);
   }
+
+  const userId = getRlsUserId();
+  if (!userId) {
+    try {
+      return await pool.query<T>(sql, params);
+    } catch (error) {
+      if (isTransientConnectionError(error)) {
+        console.warn('pg transient error, retrying query once:', String(error));
+        return pool.query<T>(sql, params);
+      }
+      throw error;
+    }
+  }
+  return runGucTx<T>(userId, sql, params);
+}
+
+// Run a single statement inside a short transaction that binds `app.user_id`
+// transaction-locally, so RLS policies resolve to `userId` for exactly this
+// statement. The BEGIN, SET, statement, and COMMIT are pipelined (issued
+// without awaiting each round-trip in turn) to keep this to a single network
+// flight — important on the latency-sensitive serverless path.
+async function runGucTx<T>(
+  userId: string,
+  sql: string,
+  params: unknown[],
+  attempt = 0
+): Promise<QueryResult<T>> {
+  const c = await pool.connect();
+  // Guard against double-release: on the transient-retry path we release the
+  // broken client eagerly (so it is destroyed before we draw a fresh one), and
+  // the `finally` must not release it a second time (pg throws on that).
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    c.release();
+  };
   try {
-    return await pool.query<T>(sql, params);
+    const begin = c.query('BEGIN');
+    const setcfg = c.query("SELECT set_config('app.user_id', $1, true)", [
+      userId,
+    ]);
+    const result = c.query<T>(sql, params);
+    const commit = c.query('COMMIT');
+    await begin;
+    await setcfg;
+    const r = await result;
+    await commit;
+    return r;
   } catch (error) {
-    if (isTransientConnectionError(error)) {
-      console.warn('pg transient error, retrying query once:', String(error));
-      return pool.query<T>(sql, params);
+    try {
+      await c.query('ROLLBACK');
+    } catch {
+      // ignore rollback errors
+    }
+    // A dropped/reaped pooler connection surfaces on the first touch; retry
+    // once on a fresh connection (the whole tx is replayed — safe, nothing
+    // committed).
+    if (isTransientConnectionError(error) && attempt === 0) {
+      console.warn(
+        'pg transient error, retrying RLS query once:',
+        String(error)
+      );
+      release();
+      return runGucTx<T>(userId, sql, params, 1);
     }
     throw error;
+  } finally {
+    release();
   }
 }
 
-// Transaction helper for API routes
+// Transaction helper for API routes.
+//
+// RLS wiring: bind `app.user_id` transaction-locally right after BEGIN so every
+// statement the callback runs on this client — including raw `client.query(...)`
+// calls that bypass the `query()` helper (e.g. DELETE /api/account) — is scoped
+// by RLS to the request's user. The GUC is discarded at COMMIT/ROLLBACK, so it
+// never leaks across the shared pooler. When no identity is bound the GUC is
+// left unset (fail-closed on tenant tables; the non-RLS auth-pool paths are
+// unaffected).
 export async function withTransaction<T>(
   callback: (client: PoolClient) => Promise<T>
 ): Promise<T> {
   const client = await pool.connect();
+  const userId = getRlsUserId();
   try {
     await client.query('BEGIN');
+    if (userId) {
+      await client.query("SELECT set_config('app.user_id', $1, true)", [
+        userId,
+      ]);
+    }
     const result = await callback(client);
     await client.query('COMMIT');
     return result;
