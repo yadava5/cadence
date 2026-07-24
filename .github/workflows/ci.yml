@@ -93,7 +93,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:15
+        image: postgres:16
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -126,6 +126,12 @@ jobs:
         run: npm run test:backend:run
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+          # Superuser admin URL that unlocks the real-Postgres RLS enforcement
+          # suite (lib/__tests__/rls.postgres.test.ts). It builds an isolated
+          # schema + non-bypass role + policies and drives the production query
+          # machinery to prove DB-level tenant isolation. Unset locally → the
+          # suite skips.
+          RLS_TEST_PG_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/test_db
 
   build:
     name: Build
