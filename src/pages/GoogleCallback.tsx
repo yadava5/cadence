@@ -102,6 +102,28 @@ export function GoogleCallbackPage() {
           updatedAt: user.createdAt,
         });
 
+        // Google sign-in now grants Calendar (calendar.events) in the SAME
+        // consent, and the server persisted the calendar refresh token during
+        // the exchange above — so this user is already calendar-connected.
+        // Kick off a best-effort first pull sync so events land in the grid on
+        // arrival, exactly like the manual "Connect Google Calendar" flow does.
+        // This is intentionally non-fatal: if the user declined the calendar
+        // checkbox on the consent screen (no calendar grant) or the sync fails
+        // for any reason, we swallow it — the account is still signed in and can
+        // connect from Settings later. Uses the freshly minted access token.
+        try {
+          await fetch('/api/google/calendar', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${tokens.accessToken}`,
+            },
+            body: JSON.stringify({}),
+          });
+        } catch {
+          // best-effort; never block Google sign-in on the calendar pull
+        }
+
         setStatus('success');
 
         // Redirect after a short delay
