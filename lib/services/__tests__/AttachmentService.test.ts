@@ -199,9 +199,13 @@ describe('AttachmentService', () => {
         mockContext
       );
 
+      // SECURITY: attachments have no userId column, so the lookup is scoped
+      // through the parent task's owner (JOIN tasks ... t."userId" = $2).
       expect(mockedQuery).toHaveBeenCalledWith(
-        expect.stringContaining('SELECT * FROM attachments WHERE id = $1'),
-        [mockAttachment.id],
+        expect.stringContaining(
+          'JOIN tasks t ON t.id = a."taskId" WHERE a.id = $1 AND t."userId" = $2'
+        ),
+        [mockAttachment.id, mockUserId],
         expect.anything()
       );
       expect(result).toEqual(mockAttachment);
@@ -218,14 +222,23 @@ describe('AttachmentService', () => {
       expect(result).toBeNull();
     });
 
-    it('should query by id regardless of context', async () => {
+    it('should scope the lookup to the authenticated user via the parent task', async () => {
+      // SECURITY: another user's attachment is not owned via the caller's
+      // tasks, so the scoped JOIN yields no row → null. Guards against a
+      // cross-tenant IDOR read of an attachment (and its public blob fileUrl).
       mockedQuery.mockResolvedValueOnce(createQueryResult([]));
 
-      await attachmentService.findById('other-user-attachment-id', mockContext);
+      const result = await attachmentService.findById(
+        'other-user-attachment-id',
+        mockContext
+      );
 
+      expect(result).toBeNull();
       expect(mockedQuery).toHaveBeenCalledWith(
-        expect.stringContaining('SELECT * FROM attachments WHERE id = $1'),
-        ['other-user-attachment-id'],
+        expect.stringContaining(
+          'JOIN tasks t ON t.id = a."taskId" WHERE a.id = $1 AND t."userId" = $2'
+        ),
+        ['other-user-attachment-id', mockUserId],
         expect.anything()
       );
     });
