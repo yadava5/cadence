@@ -22,6 +22,7 @@ import {
 } from '../../packages/backend/src/utils/jwt.js';
 import { googleOAuthService } from '../../packages/backend/src/services/GoogleOAuthService.js';
 import { query } from '../../lib/config/database.js';
+import { runWithRls } from '../../lib/config/rlsContext.js';
 
 // calendar.events grants read + write on the user's events — enough to run the
 // pull sync below AND to create meetings with attendees and Google Meet links
@@ -147,54 +148,69 @@ export default async function calendarHandler(
   const userId = await requireUser(req);
   if (!userId) return fail(401, 'UNAUTHORIZED', 'Sign in first');
 
-  try {
-    if (req.method === 'GET') {
-      const redirectUri = String(req.query.redirectUri ?? '');
-      if (!redirectUri) {
-        return fail(400, 'MISSING_REDIRECT_URI', 'redirectUri is required');
-      }
-      const authUrl = googleOAuthService.getAuthUrl({
-        redirectUri,
-        scopes: [CAL_SCOPE],
-        state: 'calendar',
-      });
-      return res.status(200).json({ success: true, data: { authUrl } });
-    }
-
-    if (req.method === 'POST') {
-      const { code, redirectUri } = (req.body ?? {}) as {
-        code?: string;
-        redirectUri?: string;
-      };
-      if (code) {
+  // This handler verifies the JWT itself (requireUser) and runs its
+  // INSERT/UPSERT into calendars + events on the CRUD pool WITHOUT the
+  // middleware chain, so nothing else establishes the RLS context. Enter it
+  // explicitly here: every query() below then binds `app.user_id` and passes
+  // FORCE RLS. Without this the writes would fail closed once RLS is enabled.
+  return runWithRls(userId, async () => {
+    try {
+      if (req.method === 'GET') {
+        const redirectUri = String(req.query.redirectUri ?? '');
         if (!redirectUri) {
           return fail(400, 'MISSING_REDIRECT_URI', 'redirectUri is required');
         }
-        await googleOAuthService.connectCalendar(userId, code, redirectUri);
-        // First sync immediately so the grid lights up on return.
-        const { synced } = await pullSync(userId);
-        return res
-          .status(200)
-          .json({ success: true, data: { connected: true, synced } });
+        const authUrl = googleOAuthService.getAuthUrl({
+          redirectUri,
+          scopes: [CAL_SCOPE],
+          state: 'calendar',
+        });
+        return res.status(200).json({ success: true, data: { authUrl } });
       }
-      const { synced } = await pullSync(userId);
-      return res.status(200).json({ success: true, data: { synced } });
-    }
 
-    return fail(405, 'METHOD_NOT_ALLOWED', 'Use GET or POST');
-  } catch (error) {
-    const message = (error as Error).message ?? 'unknown';
-    if (message === 'GOOGLE_NOT_CONNECTED') {
-      return fail(409, 'GOOGLE_NOT_CONNECTED', 'Connect Google Calendar first');
-    }
-    if (message === 'NO_REFRESH_TOKEN') {
+      if (req.method === 'POST') {
+        const { code, redirectUri } = (req.body ?? {}) as {
+          code?: string;
+          redirectUri?: string;
+        };
+        if (code) {
+          if (!redirectUri) {
+            return fail(400, 'MISSING_REDIRECT_URI', 'redirectUri is required');
+          }
+          await googleOAuthService.connectCalendar(userId, code, redirectUri);
+          // First sync immediately so the grid lights up on return.
+          const { synced } = await pullSync(userId);
+          return res
+            .status(200)
+            .json({ success: true, data: { connected: true, synced } });
+        }
+        const { synced } = await pullSync(userId);
+        return res.status(200).json({ success: true, data: { synced } });
+      }
+
+      return fail(405, 'METHOD_NOT_ALLOWED', 'Use GET or POST');
+    } catch (error) {
+      const message = (error as Error).message ?? 'unknown';
+      if (message === 'GOOGLE_NOT_CONNECTED') {
+        return fail(
+          409,
+          'GOOGLE_NOT_CONNECTED',
+          'Connect Google Calendar first'
+        );
+      }
+      if (message === 'NO_REFRESH_TOKEN') {
+        return fail(
+          409,
+          'NO_REFRESH_TOKEN',
+          'Google did not return a refresh token — remove the app at myaccount.google.com/permissions and retry'
+        );
+      }
+      console.error('Google Calendar handler error:', error);
       return fail(
-        409,
-        'NO_REFRESH_TOKEN',
-        'Google did not return a refresh token — remove the app at myaccount.google.com/permissions and retry'
+        500,
+        'GOOGLE_CALENDAR_ERROR',
+        'Google Calendar request failed'
       );
     }
-    console.error('Google Calendar handler error:', error);
-    return fail(500, 'GOOGLE_CALENDAR_ERROR', 'Google Calendar request failed');
-  }
+  });
 }
