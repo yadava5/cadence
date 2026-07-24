@@ -72,7 +72,7 @@ interface AuthState {
   isTokenExpired: () => boolean;
   isTokenExpiringSoon: (thresholdMinutes?: number) => boolean;
   getValidAccessToken: () => string | null;
-  refreshTokenIfNeeded: () => Promise<boolean>;
+  refreshTokenIfNeeded: (force?: boolean) => Promise<boolean>;
 }
 
 const initialState = {
@@ -244,7 +244,7 @@ export const useAuthStore = create<AuthState>()(
           return null;
         },
 
-        refreshTokenIfNeeded: async () => {
+        refreshTokenIfNeeded: async (force = false) => {
           const {
             authMethod,
             jwtTokens,
@@ -254,7 +254,13 @@ export const useAuthStore = create<AuthState>()(
             setError,
           } = get();
 
-          if (authMethod !== 'jwt' || !jwtTokens || !isTokenExpiringSoon()) {
+          if (authMethod !== 'jwt' || !jwtTokens) {
+            return true; // Nothing to refresh
+          }
+          // `force` refreshes even when the client clock still believes the
+          // access token is fresh — used to recover from a server-side 401
+          // (clock skew, or a token rejected mid-flight) by minting a new one.
+          if (!force && !isTokenExpiringSoon()) {
             return true; // No refresh needed
           }
 
@@ -276,8 +282,14 @@ export const useAuthStore = create<AuthState>()(
             const data = await response.json();
 
             if (data.success && data.data.accessToken) {
+              // The server ROTATES the refresh token on every refresh and
+              // blacklists the previous one (reuse then invalidates the whole
+              // token family). Persist the returned refresh token too — dropping
+              // it means the next refresh replays a blacklisted token and forces
+              // a full re-login.
               updateJWTTokens({
                 accessToken: data.data.accessToken,
+                refreshToken: data.data.refreshToken ?? jwtTokens.refreshToken,
                 expiresAt: data.data.expiresAt || Date.now() + 60 * 60 * 1000, // 1 hour default
               });
               return true;
