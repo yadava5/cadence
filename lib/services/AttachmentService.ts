@@ -169,6 +169,29 @@ export class AttachmentService extends BaseService<
     return 'Attachment';
   }
 
+  /**
+   * Find an attachment by id, scoped to the authenticated user.
+   *
+   * SECURITY: the attachments table has no userId column, so ownership is
+   * enforced through the parent task. Without this override the inherited
+   * BaseService.findById would return ANY attachment (and its public blob
+   * fileUrl) by id — a cross-tenant IDOR read. The authenticated route always
+   * supplies context.userId.
+   */
+  async findById(
+    id: string,
+    context?: ServiceContext
+  ): Promise<AttachmentEntity | null> {
+    const userId = context?.userId;
+    const sql = userId
+      ? `SELECT a.* FROM attachments a JOIN tasks t ON t.id = a."taskId" WHERE a.id = $1 AND t."userId" = $2 LIMIT 1`
+      : `SELECT * FROM attachments WHERE id = $1 LIMIT 1`;
+    const params = userId ? [id, userId] : [id];
+    const res = await query(sql, params, this.db);
+    if (res.rowCount === 0) return null;
+    return this.transformEntity(res.rows[0]);
+  }
+
   protected buildWhereClause(
     filters: AttachmentFilters,
     _context?: ServiceContext
