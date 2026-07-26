@@ -488,7 +488,7 @@ export const BuildClosingPage: React.FC<PageProps> = (p) => {
       >
         {[
           { v: 'you type', n: 'a plain sentence into the smart input' },
-          { v: 'it reads', n: 'three parsers tag it into typed chips' },
+          { v: 'it reads', n: 'the parsers tag it into typed chips' },
           { v: 'it files', n: 'as an event or task, live on the week' },
         ].map((x) => (
           <div
