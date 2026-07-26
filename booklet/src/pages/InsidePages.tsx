@@ -212,20 +212,20 @@ export const InsideDispatchPage: React.FC<PageProps> = (p) => {
         }}
       >
         <FigureCard
-          label="34 routes · one function"
+          label="36 routes · one function"
           source="api/index.ts"
-          caption="Every route lives in one catch-all: 32 product handlers plus a health and a test diagnostic — 34 entries, one serverless function."
+          caption="Every route lives in one catch-all: 34 product handlers plus a health and a test diagnostic — 36 entries, one serverless function."
         >
           <Waffle
-            total={34}
-            cols={17}
+            total={36}
+            cols={18}
             cell={12}
             gap={4}
             segments={[
               {
-                count: 32,
+                count: 34,
                 color: COLORS.EMERALD_400,
-                label: '32 product handlers',
+                label: '34 product handlers',
               },
               {
                 count: 2,

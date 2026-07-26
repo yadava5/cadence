@@ -34,7 +34,7 @@ export function exportDateStamp(d: Date = new Date()): string {
 
 export interface ExportPayload {
   exportedAt: string;
-  app: 'TaskFlow';
+  app: 'Cadence';
   version: 1;
   counts: { events: number; tasks: number };
   events: CalendarEvent[];
@@ -49,7 +49,7 @@ export function buildExportJson(
 ): string {
   const payload: ExportPayload = {
     exportedAt: new Date().toISOString(),
-    app: 'TaskFlow',
+    app: 'Cadence',
     version: 1,
     counts: { events: events.length, tasks: tasks.length },
     events,
@@ -104,7 +104,7 @@ export function buildEventsIcs(events: CalendarEvent[]): string {
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//TaskFlow//Calendar Export//EN',
+    'PRODID:-//Cadence//Calendar Export//EN',
     'CALSCALE:GREGORIAN',
   ];
 

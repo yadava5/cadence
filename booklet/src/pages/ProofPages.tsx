@@ -272,7 +272,7 @@ export const ProofTestsPage: React.FC<PageProps> = (p) => {
         >
           {[
             { k: 'the parser', n: 'chrono · priority · compromise' },
-            { k: 'the handlers', n: '32 API routes, one dispatcher' },
+            { k: 'the handlers', n: '34 API routes, one dispatcher' },
             { k: 'the services', n: 'auth · tokens · database' },
             { k: 'the React UI', n: 'calendar, chips, the smart input' },
           ].map((x, i) => (
@@ -605,7 +605,7 @@ export const ProofParsePage: React.FC<PageProps> = (p) => {
           {
             v: 'it reads',
             k: 'typed chips',
-            n: 'three parsers claim spans; the resolver keeps one each',
+            n: 'the parsers claim spans; the resolver keeps one each',
           },
           {
             v: 'it files',
@@ -666,8 +666,9 @@ export const ProofParsePage: React.FC<PageProps> = (p) => {
   );
 };
 
-// Honest span attributions for the app's two landing examples — which of the
-// three parsers claims each token; the rest becomes the clean title.
+// Honest span attributions for the app's two landing examples — which parser
+// claims each token. Explicit #hashtags are matched by a separate pass (into a
+// list tag); the rest becomes the clean title.
 const SPANS_EVENT = [
   { text: 'Lunch', parser: 'compromise' as const, tag: 'title' },
   { text: 'with' },

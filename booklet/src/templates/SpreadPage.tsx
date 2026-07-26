@@ -40,7 +40,7 @@ const STAGE_DETAIL: Record<string, { does: string; where: string }> = {
     where: 'client · resolve',
   },
   DISPATCH: {
-    does: 'The chosen record posts through one Vercel function that routes all 32 handlers by URL path.',
+    does: 'The chosen record posts through one Vercel function that routes all 34 handlers by URL path.',
     where: 'one function · api/index.ts',
   },
   PERSIST: {

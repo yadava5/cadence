@@ -6,104 +6,99 @@
 <h1 align="center">Cadence</h1>
 
 <p align="center">
-  <strong>A production-ready full-stack calendar and task management platform with intelligent NLP, multi-calendar support, and real-time conflict detection.</strong>
+  <strong>A full-stack calendar and task manager that turns plain-English input into scheduled, structured work — with NLP parsing, multi-calendar support, and real-time conflict detection.</strong>
 </p>
 
 <p align="center">
+  <a href="https://usecadenceapp.vercel.app"><strong>Live App</strong></a> •
+  <a href="https://usecadenceapp.vercel.app/system-card"><strong>System Card</strong></a> •
   <a href="#features">Features</a> •
   <a href="#architecture">Architecture</a> •
   <a href="#tech-stack">Tech Stack</a> •
-  <a href="#getting-started">Getting Started</a> •
-  <a href="#testing">Testing</a>
+  <a href="#getting-started">Getting Started</a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/tests-738%20passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-Vitest%20%2B%20Playwright-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/TypeScript-5.8-blue" alt="TypeScript">
   <img src="https://img.shields.io/badge/React-19.1-61dafb" alt="React">
   <img src="https://img.shields.io/badge/PostgreSQL-15-336791" alt="PostgreSQL">
-  <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
+  <img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial-orange" alt="License">
 </p>
 
 ---
 
 ## Overview
 
-Cadence is a comprehensive task and calendar management application built with modern full-stack technologies. It features natural language processing for smart task input, multi-pane task management, drag-and-drop scheduling, and a robust serverless API architecture.
+Cadence is a production calendar and task-management app built end-to-end in TypeScript. Type a sentence like _"Meet John tomorrow at 3pm for project review #high-priority"_ and Cadence extracts the date, priority, and people, files the result on the right calendar, and flags any scheduling conflicts before they happen.
 
-### Key Highlights
+Under the hood it pairs a React 19 frontend with a serverless PostgreSQL backend, a four-stage NLP pipeline, and a single catch-all API function that fits an entire REST surface into one serverless deployment.
 
-- **Smart Input System** — Natural language parsing with chrono-node and compromise for intelligent date/time extraction
-- **Multi-Pane Layout** — Resizable 1-3 pane task management with independent filtering per pane
-- **Full-Stack TypeScript** — End-to-end type safety from database to UI
-- **Serverless Architecture** — Vercel-optimized API with PostgreSQL and connection pooling
-- **Comprehensive Testing** — 738 tests across frontend, backend, and integration suites
-- **Performance Optimized** — Code splitting, database indexing, and smart caching
+### Why it's interesting
+
+- **Natural-language task entry** — a four-parser pipeline (dates → hashtags → priority → named entities) with confidence-weighted conflict resolution over overlapping spans.
+- **One function, full API** — 36 route handlers are dispatched by a single catch-all serverless function, keeping the whole backend inside Vercel's Hobby-tier 12-function limit without collapsing any handler logic.
+- **End-to-end type safety** — types and Zod validation schemas are shared between the client and server, so the contract is enforced in one place.
+- **Real scheduling logic** — multi-calendar visibility, recurring events (rrule), drag-and-drop, and overlap-aware conflict detection.
+- **Serverless-first data layer** — pure SQL over `pg` with connection pooling, composite indexes, and an in-memory TTL cache tuned for cold starts.
 
 ---
 
 ## Features
 
-### Task Management
+### Task management
 
-<p align="center">
-  <em><!-- GIF placeholder: task-management-demo.gif --></em>
-</p>
+- **Multi-pane layout** — 1–3 resizable vertical panes, each with independent filtering
+- **Dual view modes** — folder grid with hover previews, or a traditional list
+- **Kanban board** — drag-and-drop status columns
+- **Smart grouping** — organize by task list, due date, or priority
+- **File attachments** — upload and preview images, PDFs, and documents (Vercel Blob)
+- **Task analytics** — completion metrics and trends dashboard
 
-- **Multi-Pane Layout**: 1-3 resizable vertical panes with independent filtering
-- **Dual View Modes**: Folder grid view with hover previews or traditional list view
-- **Kanban Board**: Drag-and-drop status columns
-- **Smart Grouping**: Organize by task list, due date, or priority
-- **File Attachments**: Upload and preview images, PDFs, and documents
-- **Task Analytics**: Visual dashboard with completion metrics
+### Smart input (NLP)
 
-### Smart Input with NLP
-
-<p align="center">
-  <em><!-- GIF placeholder: smart-input-demo.gif --></em>
-</p>
-
-The smart input system uses a multi-stage parsing pipeline:
+The smart-input box runs text through four parsers in priority order and then resolves overlapping detections into a clean title plus structured metadata:
 
 ```
 "Meet John tomorrow at 3pm for project review #high-priority"
-     ↓
-┌─────────────────────────────────────────────────────────┐
-│  ChronoDateParser    → "tomorrow at 3pm" → Date object  │
-│  PriorityParser      → "#high-priority" → PRIORITY tag  │
-│  CompromiseNLPParser → "John" → PERSON entity           │
-│  Conflict Resolution → Overlapping spans resolved       │
-└─────────────────────────────────────────────────────────┘
-     ↓
-Clean task: "Meet John for project review"
-+ Metadata: { date: Date, priority: HIGH, person: "John" }
+     │
+     ▼
+┌──────────────────────────────────────────────────────────────┐
+│  1. ChronoDateParser   → "tomorrow at 3pm"   → Date object     │
+│  2. HashtagParser      → "#high-priority"    → explicit label  │
+│  3. PriorityParser     → "high priority"     → PRIORITY = HIGH  │
+│  4. CompromiseNLPParser → "John"             → PERSON entity    │
+│  ─────────────────────────────────────────────────────────────│
+│     Conflict resolution → overlapping spans ranked by parser   │
+│                            priority + confidence               │
+└──────────────────────────────────────────────────────────────┘
+     │
+     ▼
+Title: "Meet John for project review"
+Meta:  { date: Date, priority: HIGH, person: "John" }
 ```
 
-**Capabilities**:
+**Capabilities**
 
-- Natural language date/time: "next Friday", "in 2 hours", "tomorrow morning"
-- Priority detection: "urgent", "high priority", "low"
-- Entity recognition: People, locations, projects
-- Real-time syntax highlighting with confidence indicators
-- Voice input support via Web Speech API
+- Natural-language dates/times: "next Friday", "in 2 hours", "tomorrow morning" (chrono-node)
+- Explicit `#hashtag` labels and inferred priority ("urgent", "high priority", "low")
+- Entity recognition for people, places, and organizations (compromise)
+- Real-time syntax highlighting with per-tag confidence indicators
+- Voice input via the Web Speech API
 
-### Calendar & Events
+### Calendar & events
 
-<p align="center">
-  <em><!-- GIF placeholder: calendar-demo.gif --></em>
-</p>
-
-- **Multi-Calendar Support**: Separate calendars with color coding and visibility toggles
-- **Conflict Detection**: Intelligent overlap checking for event scheduling
-- **Recurring Events**: rrule-based patterns (daily, weekly, monthly, custom)
-- **Drag & Drop**: Schedule tasks directly onto the calendar
-- **Multiple Views**: Day grid, time grid, and agenda list
+- **Multi-calendar support** — separate calendars with color coding and visibility toggles
+- **Conflict detection** — overlap checking before an event is saved
+- **Recurring events** — rrule-based daily, weekly, monthly, and custom patterns
+- **Drag & drop** — schedule tasks directly onto the calendar
+- **Multiple views** — day grid, time grid, and agenda list (FullCalendar)
 
 ---
 
 ## Architecture
 
-### System Overview
+### System overview
 
 ```mermaid
 flowchart TB
@@ -113,8 +108,8 @@ flowchart TB
         TanStack[TanStack Query]
     end
 
-    subgraph API["API Layer (Vercel Serverless)"]
-        Routes[API Routes]
+    subgraph API["API (single catch-all Vercel function)"]
+        Dispatch[Path Dispatcher<br/>36 routes]
         Middleware[Middleware Pipeline]
     end
 
@@ -134,17 +129,25 @@ flowchart TB
 
     UI --> Zustand
     UI --> TanStack
-    TanStack --> Routes
-    Routes --> Middleware
+    TanStack --> Dispatch
+    Dispatch --> Middleware
     Middleware --> Services
     Services --> PG
     Services --> Cache
     AttachSvc --> Blob
 ```
 
-### Middleware Pipeline
+### The single catch-all function
 
-Every API request passes through a composable middleware chain:
+Vercel's Hobby tier caps a deployment at 12 serverless functions. Rather than merge or drop endpoints, Cadence keeps every handler intact under `server-handlers/` and wires them into **one** entry point, `api/index.ts`. That dispatcher:
+
+- matches the request path against a route table of **36 handlers** (health, auth, account, calendars, events, tags, task-lists, tasks, attachments, uploads, Google integration),
+- restores the dynamic-segment params (`req.query.id`) that Vercel's filesystem router would normally inject for the 6 `[id]` routes,
+- and delegates to the original handler byte-for-byte — so the whole REST surface ships as a single function.
+
+### Middleware pipeline
+
+Every request passes through a composable middleware chain before reaching a handler:
 
 ```mermaid
 flowchart LR
@@ -160,17 +163,17 @@ flowchart LR
     style H fill:#c8e6c9
 ```
 
-| Middleware     | Purpose                                                 |
-| -------------- | ------------------------------------------------------- |
-| **CORS**       | Cross-origin request handling with configurable origins |
-| **Request ID** | UUID generation for request tracking and logging        |
-| **Rate Limit** | Configurable presets (read: 100/min, write: 30/min)     |
-| **Auth**       | JWT verification with access/refresh token rotation     |
-| **Validation** | Zod schema validation for request body, query, params   |
+| Middleware     | Purpose                                             |
+| -------------- | --------------------------------------------------- |
+| **CORS**       | Cross-origin handling with configurable origins     |
+| **Request ID** | UUID per request for tracing and logging            |
+| **Rate Limit** | Configurable presets (read: 100/min, write: 30/min) |
+| **Auth**       | JWT verification with access/refresh token rotation |
+| **Validation** | Zod schema validation for body, query, and params   |
 
-### State Management
+### State management
 
-The application uses a hybrid state management approach:
+Client and server state are deliberately separated:
 
 ```mermaid
 flowchart TB
@@ -188,14 +191,17 @@ flowchart TB
 
     subgraph Features
         Optimistic[Optimistic Updates]
-        Cache[5min Stale Time]
+        Cache[Stale-While-Revalidate]
         Invalidation[Structured Query Keys]
     end
 
     Server --> Features
 ```
 
-### Database Schema
+- **Zustand** (~2KB) handles UI state — modals, layout, theme, session — with instant updates.
+- **TanStack Query** owns server state with caching, optimistic updates, and background sync.
+
+### Database schema
 
 ```mermaid
 erDiagram
@@ -241,12 +247,7 @@ erDiagram
     }
 ```
 
-**Performance Indexes** (10 strategic indexes):
-
-- `tasks_priority_idx` — Priority-based filtering
-- `tasks_scheduledDate_priority_idx` — Calendar view queries
-- `events_calendarId_start_end_idx` — Date range lookups
-- Composite indexes ordered by cardinality for optimal query planning
+The schema is provisioned by versioned SQL migrations that add strategic composite indexes — ordered by cardinality — for the hot paths: priority filtering, calendar-view date ranges (`events_calendarId_start_end_idx`), and scheduled-date lookups.
 
 ---
 
@@ -267,62 +268,47 @@ erDiagram
 
 ### Backend
 
-| Category         | Technologies                  |
-| ---------------- | ----------------------------- |
-| **Runtime**      | Node.js 20, Vercel Serverless |
-| **Database**     | PostgreSQL 15, pg 8.16        |
-| **Auth**         | JWT, bcryptjs, Google OAuth   |
-| **Validation**   | Zod (shared with frontend)    |
-| **File Storage** | Vercel Blob                   |
+| Category         | Technologies                       |
+| ---------------- | ---------------------------------- |
+| **Runtime**      | Node.js 20, Vercel Serverless      |
+| **Database**     | PostgreSQL 15, pure SQL via `pg` 8 |
+| **Auth**         | JWT, bcryptjs, Google OAuth        |
+| **Validation**   | Zod (shared with the frontend)     |
+| **File Storage** | Vercel Blob                        |
 
 ### Infrastructure
 
-| Category       | Technologies                          |
-| -------------- | ------------------------------------- |
-| **Deployment** | Vercel (serverless + static)          |
-| **Database**   | PostgreSQL with connection pooling    |
-| **Caching**    | In-memory with TTL, Redis (local dev) |
-| **CI/CD**      | GitHub Actions                        |
+| Category       | Technologies                             |
+| -------------- | ---------------------------------------- |
+| **Deployment** | Vercel (single serverless fn + static)   |
+| **Database**   | PostgreSQL with connection pooling       |
+| **Caching**    | In-memory TTL cache; Redis for local dev |
+| **CI/CD**      | GitHub Actions                           |
 
 ---
 
 ## Performance
 
-### Bundle Optimization
+**Bundle splitting** — Vite's `manualChunks` isolates the heaviest dependencies so they load only when needed:
 
-| Strategy           | Implementation                                 |
-| ------------------ | ---------------------------------------------- |
-| **Code Splitting** | Route-based with React.lazy()                  |
-| **Manual Chunks**  | Calendar, NLP, analytics, PDF viewer separated |
-| **Tree Shaking**   | Enabled with Terser minification               |
-| **Lazy Loading**   | Heavy features loaded on demand                |
+| Chunk         | Contents                                                  | Loaded when            |
+| ------------- | --------------------------------------------------------- | ---------------------- |
+| **calendar**  | FullCalendar (core, daygrid, timegrid, list, interaction) | Calendar view opens    |
+| **nlp**       | chrono-node, compromise                                   | Smart input is focused |
+| **analytics** | recharts                                                  | Analytics dashboard    |
+| **pdf**       | pdfjs-dist                                                | An attachment previews |
 
-**Bundle Analysis**:
+Routes are code-split with `React.lazy()` and the production build is tree-shaken and minified.
 
-- Core bundle: ~180KB (React, router, state management)
-- Calendar chunk: ~120KB (loaded on calendar view)
-- NLP chunk: ~150KB (loaded when smart input focused)
-
-### Database Performance
-
-| Optimization             | Impact                                |
-| ------------------------ | ------------------------------------- |
-| **10 Strategic Indexes** | 40-60% faster queries                 |
-| **Connection Pooling**   | Max 10 connections, 10s timeout       |
-| **Smart Caching**        | 5-minute TTL for task lists           |
-| **Query Optimization**   | Composite indexes for common patterns |
-
-### Caching Architecture
+**Data layer** — connection pooling, composite indexes ordered by cardinality, and a pattern-invalidating in-memory cache with automatic cleanup:
 
 ```typescript
-// In-memory cache with automatic cleanup
 const cache = new InMemoryCache({
   maxSize: 500,
   defaultTTL: 300000, // 5 minutes
   cleanupInterval: 60000,
 });
 
-// Pattern-based invalidation
 cache.invalidatePattern('tasks:*');
 ```
 
@@ -330,36 +316,20 @@ cache.invalidatePattern('tasks:*');
 
 ## Testing
 
-### Coverage Summary
+Cadence ships with a broad automated test suite — **89 test files** spanning the frontend, backend, and shared packages.
 
-| Area         | Test Files | Test Cases |
-| ------------ | ---------- | ---------- |
-| **Frontend** | 58         | 634        |
-| **Backend**  | 5          | 82         |
-| **Shared**   | 4          | 22         |
-| **Total**    | **67**     | **738**    |
-
-### Test Categories
-
-- **Unit Tests**: Component isolation, service methods
-- **Integration Tests**: API endpoints, middleware chain
-- **E2E Tests**: Complete user workflows
-- **Accessibility Tests**: ARIA compliance, keyboard navigation
-
-### Running Tests
+| Layer             | Tooling                  | Focus                                 |
+| ----------------- | ------------------------ | ------------------------------------- |
+| **Unit**          | Vitest + Testing Library | Components, hooks, services, parsers  |
+| **Integration**   | Vitest                   | API handlers and the middleware chain |
+| **E2E**           | Playwright               | Complete user workflows               |
+| **Accessibility** | Testing Library          | ARIA compliance, keyboard navigation  |
 
 ```bash
-# All tests
-npm run test:all
-
-# Frontend only (watch mode)
-npm run test:frontend
-
-# Backend only
-npm run test:backend
-
-# With coverage
-npm run test:backend:coverage
+npm run test:all       # full suite (backend workspaces + frontend)
+npm run test:frontend  # frontend, watch mode
+npm run test:backend   # backend (vitest.backend.config.ts)
+npm run test:e2e       # Playwright end-to-end
 ```
 
 ---
@@ -369,34 +339,33 @@ npm run test:backend:coverage
 ### Prerequisites
 
 - Node.js 20+
-- Docker & Docker Compose
-- PostgreSQL (via Docker or local)
+- Docker & Docker Compose (for PostgreSQL and Redis)
 
-### Quick Start
+### Quick start
 
 ```bash
-# Clone the repository
+# Clone
 git clone https://github.com/yadava5/cadence.git
 cd cadence
 
-# Install dependencies
+# Install
 npm install
 
 # Start database services
 npm run docker:up
 
-# Run database migrations
+# Run migrations
 npm run db:migrate
 
-# Start development servers
+# Start frontend + API
 npm run dev
 ```
 
-The application will be available at `http://localhost:5173` (frontend) and `http://localhost:3000` (API).
+The app runs at `http://localhost:5173` (frontend) with the API on `http://localhost:3000`.
 
-### Environment Variables
+### Environment variables
 
-Create a `.env.local` file:
+Create a `.env.local`:
 
 ```env
 # Database
@@ -411,19 +380,19 @@ JWT_REFRESH_EXPIRES_IN=7d
 GOOGLE_CLIENT_ID=your-client-id
 GOOGLE_CLIENT_SECRET=your-client-secret
 
-# File Storage
+# File storage
 BLOB_READ_WRITE_TOKEN=your-vercel-blob-token
 ```
 
-### Available Scripts
+### Common scripts
 
-| Command             | Description                             |
-| ------------------- | --------------------------------------- |
-| `npm run dev`       | Start frontend + backend in development |
-| `npm run build`     | Build all packages for production       |
-| `npm run test:all`  | Run complete test suite                 |
-| `npm run lint`      | Run ESLint across all workspaces        |
-| `npm run docker:up` | Start PostgreSQL and Redis              |
+| Command             | Description                         |
+| ------------------- | ----------------------------------- |
+| `npm run dev`       | Start frontend + API in development |
+| `npm run build`     | Build all packages for production   |
+| `npm run test:all`  | Run the complete test suite         |
+| `npm run lint`      | ESLint across all workspaces        |
+| `npm run docker:up` | Start PostgreSQL and Redis          |
 
 ---
 
@@ -431,92 +400,63 @@ BLOB_READ_WRITE_TOKEN=your-vercel-blob-token
 
 ```
 cadence/
-├── src/                      # Frontend React application
-│   ├── components/           # UI components (180+ files)
-│   │   ├── calendar/         # Calendar views and controls
-│   │   ├── tasks/            # Task management components
-│   │   ├── smart-input/      # NLP-powered input system
-│   │   ├── dialogs/          # Modal dialogs
-│   │   └── ui/               # Base UI primitives
-│   ├── hooks/                # Custom hooks + TanStack Query
-│   ├── stores/               # Zustand state stores
-│   └── services/api/         # API client layer
+├── src/                    # Frontend React application
+│   ├── components/         # UI components (140+ files)
+│   │   ├── calendar/       # Calendar views and controls
+│   │   ├── tasks/          # Task management
+│   │   ├── smart-input/    # NLP-powered input (parsers/)
+│   │   ├── dialogs/        # Modal dialogs
+│   │   └── ui/             # Base UI primitives
+│   ├── hooks/              # Custom hooks + TanStack Query
+│   ├── stores/             # Zustand state stores
+│   └── services/api/       # API client layer
 │
-├── api/                      # Vercel serverless functions
-│   ├── tasks/                # Task CRUD endpoints
-│   ├── events/               # Event management
-│   ├── calendars/            # Calendar operations
-│   └── auth/                 # Authentication
+├── api/                    # Single catch-all serverless entry (index.ts)
+├── server-handlers/        # 36 route handlers dispatched by api/index.ts
 │
-├── lib/                      # Backend utilities
-│   ├── services/             # Business logic layer
-│   ├── middleware/           # Request pipeline
-│   └── config/               # Database & environment
+├── lib/                    # Backend utilities
+│   ├── services/           # Business logic layer
+│   ├── middleware/         # Request pipeline
+│   └── config/             # Database, env, migrations
 │
 ├── packages/
-│   ├── backend/              # Express server
-│   └── shared/               # Shared types & validation
+│   ├── backend/            # Local dev/Express server + migrations
+│   └── shared/             # Shared types & Zod validation
 │
-└── docker/                   # Docker configuration
+└── docker/                 # Docker configuration
 ```
 
 ---
 
 ## Technical Decisions
 
-### Why Pure SQL over Prisma?
+**Pure SQL over an ORM.** Cadence uses `pg` with hand-written SQL for direct control over queries and joins, smaller serverless bundles and faster cold starts, and fully transparent, debuggable queries.
 
-After initially using Prisma, we migrated to pure SQL with the `pg` library for:
+**Hybrid state management.** Splitting UI state (Zustand) from server state (TanStack Query) keeps the client bundle tiny while getting caching, optimistic updates, and background sync for free on the server side.
 
-- **Performance**: Direct control over queries, no ORM overhead
-- **Flexibility**: Complex joins and aggregations without workarounds
-- **Serverless**: Reduced cold start time, smaller bundle size
-- **Transparency**: SQL queries are explicit and debuggable
-
-### Hybrid State Management
-
-Separating client and server state provides:
-
-- **Zustand**: Minimal bundle (~2KB), instant updates for UI state
-- **TanStack Query**: Built-in caching, optimistic updates, background sync
-- **Best of both**: Simple client state + powerful server state management
-
-### Middleware Pipeline vs Express
-
-Custom composable middleware for Vercel provides:
-
-- **Lightweight**: No Express overhead in serverless environment
-- **Type-safe**: Full TypeScript integration with request/response types
-- **Modular**: Each middleware testable in isolation
-- **Flexible**: Easy to add, remove, or reorder middleware
+**Composable middleware over Express.** A custom, type-safe middleware chain avoids Express overhead in a serverless environment, keeps each stage independently testable, and makes the pipeline trivial to reorder.
 
 ---
 
-## Contributing
+## Author
 
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+**Ayush Yadav** — sole author and maintainer.
+[github.com/yadava5](https://github.com/yadava5)
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
----
-
-## Credits
-
-- **Author & Maintainer**: Ayush Yadav
-- **Contributor**: Shree Chaturvedi
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Note that Cadence is licensed for noncommercial use (below).
 
 ---
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Cadence is **source-available** under the [PolyForm Noncommercial License 1.0.0](LICENSE).
+
+You may use, run, self-host, study, and modify it for any **noncommercial** purpose. **Commercial use of any kind requires a separate license** — contact Ayush Yadav at **aesh.03.23@gmail.com** to discuss commercial licensing or sponsorship.
+
+See the [LICENSE](LICENSE) file for the full terms.
 
 ---
 
 <p align="center">
-  Built with React, TypeScript, and PostgreSQL
+  Built with React, TypeScript, and PostgreSQL · <a href="https://usecadenceapp.vercel.app">usecadenceapp.vercel.app</a>
 </p>
