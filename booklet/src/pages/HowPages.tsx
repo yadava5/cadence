@@ -228,12 +228,12 @@ export const HowPipelinePage: React.FC<PageProps> = (p) => {
         </div>
       </div>
 
-      {/* the parse, as a flow — sentence → three parsers → resolve → typed tags */}
+      {/* the parse, as a flow — sentence → readers → resolve → typed tags */}
       <div style={{ marginTop: 20 }}>
         <FigureCard
           label="the parse · a flow"
           source="SmartParser.ts:16–56"
-          caption="Three parsers run over one sentence; each claims the spans it understands; the resolver keeps one tag per span, and a clean title plus typed tags fall out."
+          caption="Three readers run over one sentence, each claiming the spans it understands; explicit #hashtags are matched by a separate pass; the resolver keeps one tag per span, and a clean title plus typed tags fall out."
         >
           <ParseFlow />
         </FigureCard>
@@ -307,7 +307,7 @@ const DetailPage: React.FC<
 );
 
 /**
- * The three parsers in pipeline order, with the current stage lit — a fixed
+ * The three stages in pipeline order, with the current stage lit — a fixed
  * navigational rail that also anchors each detail page's foot. Data straight
  * from STAGES (priority + engine + what each reads); nothing invented.
  */
