@@ -97,7 +97,7 @@ export const PAGES: readonly PageSpec[] = [
   {
     num: 8, kind: "divider", parity: "verso", sectionKey: "02_HOW",
     chapterNum: "02", chapterTitle: "HOW",
-    subtitle: "three stages read one sentence — time, language, priority — then it files",
+    subtitle: "three stages read one sentence — time, priority, language",
     artSlot: "/art/div-02-how.svg",
     chapterIndex: 2, chapterTotal: 5,
   },
