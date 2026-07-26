@@ -463,7 +463,7 @@ function CountUp({
 }
 
 /**
- * Wraps a card title so a leading integer (e.g. "1,000+" or "32") counts up
+ * Wraps a card title so a leading integer (e.g. "1,000+" or "34") counts up
  * on scroll-in; titles that don't start with a number render untouched.
  */
 function AnimatedTitle({ title }: { title: string }) {
@@ -1484,7 +1484,7 @@ const PIPELINE = [
 const STACK = [
   {
     icon: ServerCog,
-    title: '32 handlers, one function',
+    title: '34 handlers, one function',
     body: 'Every API handler ships inside a single catch-all dispatcher that routes by URL path — byte-for-byte the same handlers, no framework routing assumptions.',
   },
   {
@@ -1556,6 +1556,8 @@ export default function WelcomePage() {
             <nav className="flex items-center gap-2">
               <Link
                 to="/login"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="rounded-lg border border-white/10 px-4 py-2 text-sm text-[#d6d8db] transition-colors hover:border-white/25 hover:text-white"
               >
                 Sign in
@@ -1642,10 +1644,11 @@ export default function WelcomePage() {
                 So we deleted the form.
               </h2>
               <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-[#8a8f98]">
-                Type the thought the way you’d text it to a friend. A
-                three-stage parser reads the time, the language, and the
-                priority, shows you exactly what it understood, then files it —
-                event or task — on the week. No dialog. No fields. One line.
+                Type the thought the way you’d text it to a friend. A parser
+                with three NLP readers (explicit #hashtags matched separately)
+                reads the time, the language, and the priority, shows you
+                exactly what it understood, then files it — event or task — on
+                the week. No dialog. No fields. One line.
               </p>
             </Reveal>
             <Reveal delay={120} className="mt-12">
@@ -1664,7 +1667,7 @@ export default function WelcomePage() {
             <p className="mt-5 max-w-xl text-base leading-relaxed text-[#8a8f98]">
               The magic is a pipeline you can read. Three parsing stages hand
               off in order — each one catching a different part of your
-              sentence.
+              sentence; explicit #hashtags are matched separately.
             </p>
           </Reveal>
 
