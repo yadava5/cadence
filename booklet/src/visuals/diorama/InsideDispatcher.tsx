@@ -4,7 +4,7 @@ import { SceneFrame, IsoSolid, makeProject } from "./primitives";
 
 /**
  * INSIDE — the dispatcher. One isometric function block (emerald) fans out to a
- * lattice of small handler nodes — the "one serverless function, 32 handlers"
+ * lattice of small handler nodes — the "one serverless function, 34 handlers"
  * story — and drains into a database cylinder. The single bright block is the
  * catch-all; the many faint nodes are the routes it holds.
  */
@@ -17,7 +17,7 @@ const P = makeProject(2.1, 92, 128);
 export const InsideDispatcher: React.FC = () => {
   const dispatch = P(0, 0, 22); // top of the central block
 
-  // Handler nodes: a 4×4 lattice up-and-right of the block (16 shown, ×32).
+  // Handler nodes: a 4×4 lattice up-and-right of the block (16 shown, ×34).
   const nodes: { sx: number; sy: number }[] = [];
   for (let r = 0; r < 4; r++) {
     for (let c = 0; c < 4; c++) {
@@ -43,9 +43,9 @@ export const InsideDispatcher: React.FC = () => {
       {nodes.map((n, i) => (
         <rect key={i} x={n.sx - 3.4} y={n.sy - 3.4} width={6.8} height={6.8} rx={1} fill="currentColor" fillOpacity={0.12} stroke="currentColor" strokeWidth={0.7} opacity={0.85} />
       ))}
-      {/* ×32 tag — anchored to the right edge, growing left so it never clips */}
+      {/* ×34 tag — anchored to the right edge, growing left so it never clips */}
       <text x={202} y={44} textAnchor="end" fontFamily="ui-monospace, monospace" fontSize={9} fontWeight={700} letterSpacing="0.5" fill="currentColor">
-        × 32
+        × 34
       </text>
 
       {/* database cylinder */}
