@@ -10,7 +10,7 @@ import { COLORS, FONTS } from "../theme";
 
 const MONO = "ui-monospace, monospace";
 
-// ── Parse flow — sentence → three parsers → resolve → typed output ────────────
+// ── Parse flow — sentence → readers → resolve → typed output ────────────
 
 export const ParseFlow: React.FC = () => {
   const W = 560;
