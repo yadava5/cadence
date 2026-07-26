@@ -6,11 +6,13 @@
  * measured/enforced fact. Nothing is invented. A few deliberate honesty calls,
  * grounded in the code rather than a marketing line:
  *
- *   · "32 serverless handlers" is the figure the app itself reports
- *     (Welcome.tsx:276) and the dispatcher's own docstring records
- *     (api/index.ts:6). A literal count of the current tree is 34 handler
- *     files / 34 routes — the two extra are `health` + `test` diagnostics;
- *     34 − 2 = 32 product handlers. We print 32 and note the count.
+ *   · "34 handlers / 36 route entries" is a literal count of the live
+ *     ROUTES table (api/index.ts:55–92): 36 tuples = 34 product handlers
+ *     plus a `health` and a `test` diagnostic (36 − 2 = 34). All 34 still
+ *     bundle into one catch-all function, well under Vercel Hobby's
+ *     12-function cap. Note: the app's own Welcome.tsx headline and the
+ *     dispatcher docstring still say "32" — stale against the current
+ *     table; we print the table's real count.
  *   · "1,145 tests" is the app-reported green figure (Welcome.tsx:219, 278).
  *     A static count of `it()/test()` calls across the tree is ~1,249
  *     (634 frontend + 615 backend/handler). We print the reported figure and
@@ -56,7 +58,7 @@ export const MASTHEAD = {
 export const ABSTRACT = {
   greeting: "Welcome.",
   body:
-    "Every calendar app hands you a form: title, date, start, end, priority, list. Cadence deletes the form. You type one plain sentence — “Lunch with Sam tomorrow 1pm” — and a three-stage parser reads the time, the language, and the priority, shows you its reading as chips, then files it as an event or a task on the week. Behind it: a React 19 app, one serverless dispatcher, a CA-pinned Postgres, and 1,145 tests.",
+    "Every calendar app hands you a form: title, date, start, end, priority, list. Cadence deletes the form. You type one plain sentence — “Lunch with Sam tomorrow 1pm” — and a three-stage parser reads the time, the priority, and the language, shows you its reading as chips, then files it as an event or a task on the week. Behind it: a React 19 app, one serverless dispatcher, a CA-pinned Postgres, and 1,145 tests.",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -145,14 +147,14 @@ export const TOC = {
   ],
   atAGlance: [
     { key: "3 stages", val: "chrono · compromise · priority rules." },
-    { key: "1 function", val: "32 handlers behind one Vercel dispatcher." },
+    { key: "1 function", val: "34 handlers behind one Vercel dispatcher." },
     { key: "1,145 tests", val: "green · strict headers · zero third-party." },
   ],
   glossary: [
     { term: "chrono", def: "natural-language date/time parser." },
     { term: "compromise", def: "in-browser NLP — names, places, verbs." },
     { term: "chip", def: "a parsed field, shown before it is saved." },
-    { term: "dispatcher", def: "one function routing all 32 handlers." },
+    { term: "dispatcher", def: "one function routing all 34 handlers." },
     { term: "search_path", def: "the schema a pooled connection resolves to." },
     { term: "AES-GCM", def: "authenticated encryption for stored tokens." },
   ],
@@ -166,9 +168,11 @@ export const TOC = {
 } as const;
 
 // ---------------------------------------------------------------------------
-// The three parser stages — reused across HOW / INSIDE.
+// The three content stages — reused across HOW / INSIDE.
 // Priorities + engines from src/components/smart-input/parsers/SmartParser.ts,
-// listed in execution order (chrono → priority → compromise).
+// listed in execution order (chrono → priority → compromise). A fourth parser,
+// HashtagParser (priority 9), matches explicit #tags separately — it is not one
+// of the three content stages shown here.
 // ---------------------------------------------------------------------------
 
 export const STAGES = [
@@ -287,13 +291,13 @@ export const WHY = {
 // ---------------------------------------------------------------------------
 
 export const HOW = {
-  divider: { subtitle: "three stages read one sentence — time, language, priority — then it files" },
+  divider: { subtitle: "three stages read one sentence — time, priority, language" },
 
   pipeline: {
     eyebrow: "§02 · THE PIPELINE",
     headline: "One sentence, three readers.",
     lede:
-      "The SmartParser is a multi-stage pipeline. Three parsers run over the same sentence in priority order, each claiming the spans it understands; a resolver settles overlaps; and what's left is a clean title plus a set of typed tags.",
+      "The SmartParser is a multi-stage pipeline. Three readers run over the same sentence in priority order — time, then priority, then language — each claiming the spans it understands; a fourth pass matches explicit #hashtags (priority 9). A resolver settles overlaps, and what's left is a clean title plus a set of typed tags.",
     body:
       "Every parser returns tagged spans with a confidence. Where two parsers claim overlapping text, the higher-priority — then higher-confidence — tag wins, and the loser is dropped. The pipeline never guesses silently: it shows the reading as chips before anything is written.",
     steps: [
@@ -397,15 +401,15 @@ export const INSIDE = {
 
   dispatch: {
     eyebrow: "§03 · THE DISPATCHER",
-    headline: "32 handlers, one function.",
+    headline: "34 handlers, one function.",
     lede:
-      "Vercel's Hobby tier caps a deployment at 12 serverless functions. Cadence has 32 API handlers. So all of them ship inside a single catch-all function that routes by URL path.",
+      "Vercel's Hobby tier caps a deployment at 12 serverless functions. Cadence has 34 API handlers. So all of them ship inside a single catch-all function that routes by URL path.",
     body:
       "Every former per-file handler is imported into one dispatcher and matched against a route table — static patterns winning over “:id” params — with the dynamic segments injected back into req.query exactly as Vercel's filesystem router would have. One function, byte-for-byte the same handlers, no framework routing assumptions.",
-    before: { value: "32", label: "API handlers" },
+    before: { value: "34", label: "API handlers" },
     after: { value: "1", label: "serverless function" },
     ratio: "12-function cap, cleared",
-    exact: "34 route entries — 32 product handlers + health + test",
+    exact: "36 route entries — 34 product handlers + health + test",
     facts: [
       { k: "FRONTEND", v: "React 19.1 SPA · Vite · TanStack Query" },
       { k: "API", v: "one @vercel/node function · path router" },
@@ -543,7 +547,7 @@ export const BUILD = {
       { n: "1", label: "TYPE", detail: "one plain sentence", accentKey: "01_WHY" },
       { n: "2", label: "PARSE", detail: "chrono · priority · compromise", accentKey: "02_HOW" },
       { n: "3", label: "RESOLVE", detail: "overlaps → chips", accentKey: "02_HOW" },
-      { n: "4", label: "DISPATCH", detail: "one function · 32 routes", accentKey: "03_INSIDE" },
+      { n: "4", label: "DISPATCH", detail: "one function · 34 routes", accentKey: "03_INSIDE" },
       { n: "5", label: "PERSIST", detail: "Postgres · pinned TLS", accentKey: "03_INSIDE" },
     ],
     registry:
@@ -561,13 +565,13 @@ export const BUILD = {
       { area: "CALENDAR", tech: "FullCalendar · @dnd-kit · Radix UI", note: "month/week/day/agenda + drag" },
       { area: "NLP", tech: "chrono-node · compromise · regex rules", note: "the three-stage parser, on the client" },
       { area: "STATE", tech: "TanStack Query · Zod · Tailwind v4", note: "data fetching, validation, styling" },
-      { area: "API", tech: "@vercel/node · one dispatcher · pg", note: "32 handlers, pure SQL, no ORM" },
+      { area: "API", tech: "@vercel/node · one dispatcher · pg", note: "34 handlers, pure SQL, no ORM" },
       { area: "DATA", tech: "Supabase Postgres · CA-pinned TLS · JWT", note: "rotation, rate limits, AES-GCM" },
     ],
     // Where each layer runs — the same stack, told as three tiers.
     archTiers: [
       { zone: "CLIENT", runs: "in the browser", items: ["React 19 · Vite", "chrono · priority · compromise", "TanStack Query"] },
-      { zone: "DISPATCH", runs: "one Vercel function", items: ["@vercel/node", "path router", "32 handlers · pure SQL"] },
+      { zone: "DISPATCH", runs: "one Vercel function", items: ["@vercel/node", "path router", "34 handlers · pure SQL"] },
       { zone: "DATA", runs: "Supabase Postgres", items: ["CA-pinned TLS", "search_path=public", "JWT · AES-GCM"] },
     ],
     archNote: "The parse runs entirely on the client; only the resolved record crosses the wire to the one dispatcher, then to Postgres.",
@@ -583,7 +587,7 @@ export const BUILD = {
     liveLabel: "LIVE WEB APP",
     liveUrl: "usecadenceapp.vercel.app",
     spaceLabel: "DEMO ACCOUNT",
-    spaceUrl: "john@example.com · password123",
+    spaceUrl: "usecadenceapp.vercel.app/login",
     leftArrowLabel: "open it",
     rightArrowLabel: "sign in, seeded",
     microNote: "one sentence · three stages · zero forms",
