@@ -7,7 +7,8 @@ import { SceneFrame, IsoSolid, makeProject } from './primitives';
  * priority, compromise — that one sentence falls through, top to bottom. The
  * sentence enters as a ribbon at the top and leaves as a cluster of emerald
  * chips at the bottom. The stack order is the parser's real priority order
- * (10 → 8 → 6).
+ * (10 → 8 → 6); a fourth parser, the #hashtag pass (priority 9), runs between
+ * chrono and priority but is matched separately, not drawn as a stage.
  */
 
 const LINE = COLORS.ON_DARK;
