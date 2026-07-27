@@ -148,9 +148,14 @@ describe('TagService', () => {
 
       const result = await tagService.findById(mockTag.id, mockContext);
 
+      // This assertion used to pin the UNSCOPED query — `WHERE id = $1` with
+      // the id as the only parameter — so it passed against the IDOR and would
+      // have kept passing forever. It now pins the owner predicate.
       expect(mockedQuery).toHaveBeenCalledWith(
-        expect.stringContaining('SELECT * FROM tags WHERE id = $1'),
-        [mockTag.id],
+        expect.stringContaining(
+          'SELECT * FROM tags WHERE id = $1 AND "userId" = $2'
+        ),
+        [mockTag.id, mockUserId],
         expect.anything()
       );
       expect(result).toEqual(mockTag);
@@ -563,6 +568,48 @@ describe('TagService', () => {
       const result = await tagService.create(createDTO, mockContext);
 
       expect(result.name).toBe(createdTag.name);
+    });
+  });
+
+  // The eighth IDOR of the same class as the seven fixed on 2026-07-24. It was
+  // never enumerated with them: the handler passed userId in the context and
+  // TagService inherited BaseService's unscoped `WHERE id = $1`. These two
+  // tests fail against the pre-fix service and pass against the scoped one.
+  describe('tenant isolation (IDOR regression)', () => {
+    it('findById scopes the SELECT to the requesting user', async () => {
+      mockedQuery.mockResolvedValueOnce(createQueryResult([]));
+
+      const result = await tagService.findById(
+        'other-user-tag-id',
+        mockContext
+      );
+
+      expect(result).toBeNull();
+      expect(mockedQuery).toHaveBeenCalledWith(
+        expect.stringContaining('WHERE id = $1 AND "userId" = $2'),
+        ['other-user-tag-id', mockUserId],
+        expect.anything()
+      );
+    });
+
+    it('delete scopes the DELETE and reports rowCount, not a blanket true', async () => {
+      mockedQuery.mockResolvedValueOnce({
+        ...createQueryResult([]),
+        rowCount: 0,
+      });
+
+      const deleted = await tagService.delete('other-user-tag-id', mockContext);
+
+      // BaseService.delete returned true here, which both leaked existence and
+      // told the caller a row it never owned had been removed.
+      expect(deleted).toBe(false);
+      expect(mockedQuery).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'DELETE FROM tags WHERE id = $1 AND "userId" = $2'
+        ),
+        ['other-user-tag-id', mockUserId],
+        expect.anything()
+      );
     });
   });
 });

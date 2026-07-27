@@ -105,6 +105,52 @@ export class TagService extends BaseService<
     return 'Tag';
   }
 
+  /**
+   * Scoped by owner, because BaseService is not.
+   *
+   * The seven IDOR fixes of 2026-07-24 all had this shape: the handler passed
+   * `userId` in the context and the service dropped it on the floor, falling
+   * through to BaseService's `WHERE id = $1`. TagService was never enumerated
+   * with the other seven, so `GET /api/tags/:id` still returned any user's tag
+   * to any authenticated caller.
+   */
+  async findById(
+    id: string,
+    context?: ServiceContext
+  ): Promise<TagEntity | null> {
+    const params: unknown[] = [id];
+    let where = 'id = $1';
+    if (context?.userId) {
+      params.push(context.userId);
+      where += ` AND "userId" = $${params.length}`;
+    }
+    const res = await query(
+      `SELECT * FROM tags WHERE ${where} LIMIT 1`,
+      params,
+      this.db
+    );
+    if (res.rowCount === 0) return null;
+    return this.transformEntity(res.rows[0]);
+  }
+
+  /**
+   * Same scoping, plus an honest return value.
+   *
+   * BaseService.delete returns `true` unconditionally, so a cross-tenant delete
+   * answered 200 {deleted:true} whether or not a row existed — which both
+   * leaked existence and lied about the outcome. This reports rowCount.
+   */
+  async delete(id: string, context?: ServiceContext): Promise<boolean> {
+    const params: unknown[] = [id];
+    let where = 'id = $1';
+    if (context?.userId) {
+      params.push(context.userId);
+      where += ` AND "userId" = $${params.length}`;
+    }
+    const res = await query(`DELETE FROM tags WHERE ${where}`, params, this.db);
+    return (res.rowCount ?? 0) > 0;
+  }
+
   protected buildWhereClause(
     filters: TagFilters,
     _context?: ServiceContext
