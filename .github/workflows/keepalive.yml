@@ -1,0 +1,98 @@
+name: Keep-alive + uptime probe
+
+# Supabase's free tier auto-pauses a project after 7 days without activity.
+# That is not hypothetical here: on 2026-07-30 it paused the project backing
+# LifeQuest, whose API then returned 500 on every route for 38 minutes while
+# the frontend kept serving 200s, and nothing reported it. During a beta that
+# failure mode is fatal — testers see a dead app and there is no signal.
+#
+# This workflow prevents it without paying for Supabase Pro, and doubles as the
+# uptime monitor, because a failed scheduled run emails the repository owner.
+#
+# ## Why it probes login rather than /api/health
+#
+# The keep-alive only works if the request actually reaches POSTGRES. Two
+# traps make that easy to get wrong:
+#
+#   - Cadence's deployed `/api/health` is a static JSON literal. It never
+#     queries the database, so a cron pointed at it would keep nothing warm
+#     while looking perfectly green.
+#   - Supabase's REST gateway answers BEFORE Postgres finishes recovering, so
+#     hitting `<ref>.supabase.co/rest/v1/` proves nothing either.
+#
+# `POST /auth/login` with an address that cannot exist runs a real lookup
+# (`SELECT ... FROM users WHERE LOWER(email) = ...` in Cadence,
+# `prisma.user.findUnique` in LifeQuest) and only then rejects. So the probe
+# reaches Postgres, needs no repository secret, and sends no real credentials —
+# the address is under the reserved `.invalid` TLD and can never be registered.
+#
+# ## The assertion is the point
+#
+# Each probe requires BOTH a 401 and the specific body marker that a database
+# lookup produces. Checking the status alone would pass on a 401 raised by
+# middleware before any query, which is exactly the false-green this exists to
+# avoid.
+#
+# ## Known limitation
+#
+# GitHub disables scheduled workflows after 60 days of repository inactivity.
+# An active beta means regular pushes, but if this repo goes quiet, re-enable
+# the schedule from the Actions tab.
+
+on:
+  schedule:
+    # Every 6 hours — a wide margin under the 7-day idle threshold, so several
+    # consecutive missed runs (GitHub delays cron under load) still cannot let
+    # a project reach the pause window.
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe every free-tier database behind a real query
+        shell: bash
+        run: |
+          # No `set -e`: probe both targets and report all failures together,
+          # so one app being down cannot hide the state of the other.
+          overall=0
+
+          probe() {
+            local name="$1" url="$2" marker="$3"
+            local body status
+
+            body=$(curl -s --max-time 30 -w $'\n%{http_code}' \
+              -X POST "$url" \
+              -H 'Content-Type: application/json' \
+              -d '{"email":"keepalive@cadence.invalid","password":"keepalive-probe-not-a-real-password"}')
+            status=$(printf '%s' "$body" | tail -n1)
+            body=$(printf '%s' "$body" | sed '$d')
+
+            if [ "$status" != "401" ]; then
+              echo "::error title=$name unreachable::expected 401, got ${status:-no response}. Body: ${body:0:300}"
+              overall=1
+              return
+            fi
+
+            if ! printf '%s' "$body" | grep -q "$marker"; then
+              echo "::error title=$name did not reach Postgres::got 401 but no '$marker'. The request was rejected before the database was queried, so this run did NOT keep the project warm. Body: ${body:0:300}"
+              overall=1
+              return
+            fi
+
+            echo "$name OK — reached Postgres and was rejected as expected."
+          }
+
+          # Marker strings are the ones only produced AFTER the user lookup runs.
+          probe "Cadence"   "https://usecadenceapp.vercel.app/api/auth/login" "INVALID_CREDENTIALS"
+          probe "LifeQuest" "https://getlifequest.vercel.app/api/auth/login"  "Invalid credentials"
+
+          exit $overall
