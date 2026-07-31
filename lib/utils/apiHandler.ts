@@ -17,6 +17,7 @@ import type { ValidationConfig } from '../middleware/validation.js';
 import { composeMiddleware } from '../middleware/index.js';
 import { devAuth, authenticateJWT } from '../middleware/auth.js';
 import { ApiError } from '../types/api.js';
+import { query } from '../config/database.js';
 
 /**
  * Create a standardized API route handler
@@ -174,15 +175,85 @@ export function createCrudHandler(config: {
 /**
  * Health check handler
  */
+/**
+ * Readiness probe state.
+ *
+ * The health endpoint returned a static `{status:'ok'}` and never touched
+ * Postgres — so it answered 200 for the entire duration of a database outage,
+ * and a monitor pointed at it would have reported the service healthy while
+ * every data route failed. That is precisely what happened on 2026-07-31, when
+ * a paused database took an API down for 38 minutes undetected.
+ *
+ * The probe is cached for a few seconds because this endpoint is
+ * unauthenticated: without it, anyone could turn a health check into database
+ * load. `SELECT 1` is trivial, but free and unbounded is still free and
+ * unbounded.
+ */
+const DB_PROBE_TIMEOUT_MS = 1500;
+const DB_PROBE_CACHE_MS = 5000;
+
+interface DbProbe {
+  ok: boolean;
+  latencyMs?: number;
+  error?: string;
+  at: number;
+}
+let lastProbe: DbProbe | null = null;
+
+async function probeDatabase(): Promise<DbProbe> {
+  const now = Date.now();
+  if (lastProbe && now - lastProbe.at < DB_PROBE_CACHE_MS) return lastProbe;
+
+  const started = Date.now();
+  try {
+    await Promise.race([
+      query('SELECT 1'),
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`probe exceeded ${DB_PROBE_TIMEOUT_MS}ms`)),
+          DB_PROBE_TIMEOUT_MS
+        )
+      ),
+    ]);
+    lastProbe = { ok: true, latencyMs: Date.now() - started, at: now };
+  } catch (error: unknown) {
+    lastProbe = {
+      ok: false,
+      latencyMs: Date.now() - started,
+      error: error instanceof Error ? error.message : String(error),
+      at: now,
+    };
+  }
+  return lastProbe;
+}
+
+/** Test seam — the probe cache is process-local by design. */
+export function __resetHealthProbeForTests(): void {
+  lastProbe = null;
+}
+
 export const healthCheckHandler = createMethodHandler({
   [HttpMethod.GET]: async (req: AuthenticatedRequest, res: VercelResponse) => {
-    res.status(200).json({
-      success: true,
+    const database = await probeDatabase();
+
+    // Every field the previous response carried is still here and unchanged,
+    // so anything already reading `status`/`timestamp`/`environment`/`version`
+    // keeps working. What is new is that `status` can now be 'error', and that
+    // the endpoint answers 503 when the database it depends on is unreachable.
+    res.status(database.ok ? 200 : 503).json({
+      success: database.ok,
       data: {
-        status: 'ok',
+        status: database.ok ? 'ok' : 'error',
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV || 'development',
         version: process.env.npm_package_version || '1.0.0',
+        checks: {
+          database: {
+            ok: database.ok,
+            latencyMs: database.latencyMs,
+            ...(database.error ? { error: database.error } : {}),
+          },
+        },
       },
     });
   },
