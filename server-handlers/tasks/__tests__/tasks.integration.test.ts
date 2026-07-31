@@ -109,18 +109,45 @@ describe('Tasks API Integration Tests', () => {
       });
       const res = createMockResponse();
 
-      mockTaskService.findAll.mockResolvedValue([mockTask]);
+      // This asserted findAll and a bare `{ data }`, which is exactly the
+      // unbounded path the handler used to take by default — the test encoded
+      // the bug and would have stayed green forever. A request with no page
+      // must still be bounded.
+      const unpaginated = {
+        data: [mockTask],
+        pagination: { page: 1, limit: 500, total: 1, totalPages: 1 },
+      };
+      mockTaskService.findPaginated.mockResolvedValue(unpaginated);
 
       await tasksHandler(req, res);
 
-      expect(mockTaskService.findAll).toHaveBeenCalledWith(
+      expect(mockTaskService.findAll).not.toHaveBeenCalled();
+      expect(mockTaskService.findPaginated).toHaveBeenCalledWith({}, 1, 500, {
+        userId: 'user-123',
+        requestId: 'test-request-123',
+      });
+      expect(mockSendSuccess).toHaveBeenCalledWith(res, unpaginated);
+    });
+
+    it('caps an explicit limit so one caller cannot ask for the whole table', async () => {
+      const req = createMockAuthRequest(mockUser, {
+        method: 'GET',
+        query: { limit: '100000' },
+      });
+      const res = createMockResponse();
+      mockTaskService.findPaginated.mockResolvedValue({
+        data: [mockTask],
+        pagination: { page: 1, limit: 200, total: 1, totalPages: 1 },
+      });
+
+      await tasksHandler(req, res);
+
+      expect(mockTaskService.findPaginated).toHaveBeenCalledWith(
         {},
-        {
-          userId: 'user-123',
-          requestId: 'test-request-123',
-        }
+        1,
+        200,
+        expect.anything()
       );
-      expect(mockSendSuccess).toHaveBeenCalledWith(res, { data: [mockTask] });
     });
 
     it('should apply filters from query parameters', async () => {
@@ -141,11 +168,15 @@ describe('Tasks API Integration Tests', () => {
       });
       const res = createMockResponse();
 
-      mockTaskService.findAll.mockResolvedValue([mockTask]);
+      mockTaskService.findPaginated.mockResolvedValue({
+        data: [mockTask],
+        pagination: { page: 1, limit: 500, total: 1, totalPages: 1 },
+      });
 
       await tasksHandler(req, res);
 
-      expect(mockTaskService.findAll).toHaveBeenCalledWith(
+      // Filter parsing is unchanged; only the service method it feeds differs.
+      expect(mockTaskService.findPaginated).toHaveBeenCalledWith(
         {
           completed: true,
           taskListId: 'list-123',
@@ -160,6 +191,8 @@ describe('Tasks API Integration Tests', () => {
           sortBy: 'scheduledDate',
           sortOrder: 'asc',
         },
+        1,
+        500,
         {
           userId: 'user-123',
           requestId: 'test-request-123',
@@ -218,7 +251,7 @@ describe('Tasks API Integration Tests', () => {
       const req = createMockAuthRequest(mockUser, { method: 'GET' });
       const res = createMockResponse();
 
-      mockTaskService.findAll.mockRejectedValue(
+      mockTaskService.findPaginated.mockRejectedValue(
         new Error('Database connection failed')
       );
 

@@ -11,6 +11,18 @@ import {
 } from '../../lib/types/api.js';
 import type { AuthenticatedRequest } from '../../lib/types/api.js';
 import type { VercelResponse } from '@vercel/node';
+
+/**
+ * Page-size bounds for the tasks collection.
+ *
+ * MAX_UNPAGINATED_LIMIT is the safety net for a caller that asks for no page at
+ * all — high enough that no current client sees a change, low enough that one
+ * user with a large table cannot make the API scan it. MAX_PAGE_LIMIT bounds an
+ * explicit `?limit=`, which was previously honoured without any ceiling.
+ */
+const DEFAULT_PAGE_LIMIT = 20;
+const MAX_PAGE_LIMIT = 200;
+const MAX_UNPAGINATED_LIMIT = 500;
 import type {
   CreateTaskDTO,
   TaskFilters,
@@ -95,23 +107,43 @@ export default createCrudHandler({
         filters.sortOrder = (sortOrder as string) === 'asc' ? 'asc' : 'desc';
       }
 
-      // Get tasks with pagination if requested
-      const pageNum = parseInt(page as string);
-      const limitNum = parseInt(limit as string);
+      // Always bounded.
+      //
+      // This read `if (pageNum > 1 || limitNum !== 20)`, and `page`/`limit`
+      // default to '1'/'20' above — so the condition was FALSE for a plain
+      // `GET /api/tasks` and it took the unbounded `findAll` branch. Asking for
+      // the default page size returned the entire table; asking for anything
+      // else was correctly paginated. The bound was inverted.
+      //
+      // The cap for an unpaginated request is deliberately high rather than 20.
+      // No client has ever received 20 by default, so capping there would be a
+      // silent truncation dressed up as a fix. At 500 nobody's view changes and
+      // the sequential scan is gone. `pagination.total` in the response tells a
+      // client when it has been truncated.
+      const explicitlyPaged =
+        req.query.page !== undefined || req.query.limit !== undefined;
+      const parsedPage = parseInt(page as string, 10);
+      const parsedLimit = parseInt(limit as string, 10);
+      const pageNum =
+        Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+      const limitNum = explicitlyPaged
+        ? Math.min(
+            Number.isFinite(parsedLimit) && parsedLimit > 0
+              ? parsedLimit
+              : DEFAULT_PAGE_LIMIT,
+            MAX_PAGE_LIMIT
+          )
+        : MAX_UNPAGINATED_LIMIT;
 
-      let result;
-      if (pageNum > 1 || limitNum !== 20) {
-        result = await taskService.findPaginated(filters, pageNum, limitNum, {
+      const result = await taskService.findPaginated(
+        filters,
+        pageNum,
+        limitNum,
+        {
           userId,
           requestId: req.headers['x-request-id'] as string,
-        });
-      } else {
-        const tasks = await taskService.findAll(filters, {
-          userId,
-          requestId: req.headers['x-request-id'] as string,
-        });
-        result = { data: tasks };
-      }
+        }
+      );
 
       sendSuccess(res, result);
     } catch (error) {

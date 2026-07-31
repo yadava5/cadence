@@ -12,7 +12,11 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
-    include: ['api/**/*.test.ts', 'lib/**/*.test.ts'],
+    include: [
+      'api/**/*.test.ts',
+      'lib/**/*.test.ts',
+      'server-handlers/**/*.test.ts',
+    ],
     exclude: [
       'node_modules/**',
       'dist/**',
