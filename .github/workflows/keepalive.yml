@@ -4,34 +4,37 @@ name: Keep-alive + uptime probe
 # That is not hypothetical here: on 2026-07-30 it paused the project backing
 # LifeQuest, whose API then returned 500 on every route for 38 minutes while
 # the frontend kept serving 200s, and nothing reported it. During a beta that
-# failure mode is fatal — testers see a dead app and there is no signal.
+# failure mode is fatal and invisible.
 #
-# This workflow prevents it without paying for Supabase Pro, and doubles as the
-# uptime monitor, because a failed scheduled run emails the repository owner.
+# This prevents it without paying for Supabase Pro, and doubles as the uptime
+# monitor, because a failed scheduled run emails the repository owner.
 #
-# ## Why it probes login rather than /api/health
+# ## The probe must actually reach Postgres
 #
-# The keep-alive only works if the request actually reaches POSTGRES. Two
-# traps make that easy to get wrong:
+# That is the whole difficulty, and there are three ways to get it wrong:
 #
-#   - Cadence's deployed `/api/health` is a static JSON literal. It never
-#     queries the database, so a cron pointed at it would keep nothing warm
-#     while looking perfectly green.
 #   - Supabase's REST gateway answers BEFORE Postgres finishes recovering, so
-#     hitting `<ref>.supabase.co/rest/v1/` proves nothing either.
+#     hitting `<ref>.supabase.co/rest/v1/` proves nothing.
+#   - Cadence's health endpoint USED to be a static JSON literal that never
+#     queried the database. A cron pointed at that kept nothing warm while
+#     looking perfectly green. It now runs `SELECT 1` and reports the result.
+#   - An earlier version of this workflow probed `POST /auth/login`, because
+#     it runs a real user lookup. That worked, but the auth rate limiter
+#     answers 429 BEFORE the query — so under any burst the probe stopped
+#     reaching Postgres and started raising false alarms. Verified by tripping
+#     it: the run failed with RATE_LIMIT_EXCEEDED.
 #
-# `POST /auth/login` with an address that cannot exist runs a real lookup
-# (`SELECT ... FROM users WHERE LOWER(email) = ...` in Cadence,
-# `prisma.user.findUnique` in LifeQuest) and only then rejects. So the probe
-# reaches Postgres, needs no repository secret, and sends no real credentials —
-# the address is under the reserved `.invalid` TLD and can never be registered.
+# Both apps now expose an unauthenticated, un-rate-limited health route that
+# genuinely queries Postgres — Cadence via `SELECT 1` reported as
+# `checks.database.ok`, LifeQuest via `prisma.$queryRaw SELECT 1`. Those are
+# the correct probes: no credentials, no rate-limit interaction, and an
+# explicit database result rather than an inference.
 #
 # ## The assertion is the point
 #
-# Each probe requires BOTH a 401 and the specific body marker that a database
-# lookup produces. Checking the status alone would pass on a 401 raised by
-# middleware before any query, which is exactly the false-green this exists to
-# avoid.
+# A 200 alone is not enough — Cadence returns 503 with `ok: false` when the
+# database is unreachable, which is exactly the case worth alerting on. So the
+# check requires the database field itself to be true.
 #
 # ## Known limitation
 #
@@ -58,41 +61,65 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe every free-tier database behind a real query
+      - name: Probe every free-tier database through a real query
         shell: bash
         run: |
-          # No `set -e`: probe both targets and report all failures together,
-          # so one app being down cannot hide the state of the other.
-          overall=0
+          python3 - <<'PY'
+          import json
+          import sys
+          import urllib.error
+          import urllib.request
 
-          probe() {
-            local name="$1" url="$2" marker="$3"
-            local body status
+          TIMEOUT = 30
 
-            body=$(curl -s --max-time 30 -w $'\n%{http_code}' \
-              -X POST "$url" \
-              -H 'Content-Type: application/json' \
-              -d '{"email":"keepalive@cadence.invalid","password":"keepalive-probe-not-a-real-password"}')
-            status=$(printf '%s' "$body" | tail -n1)
-            body=$(printf '%s' "$body" | sed '$d')
+          def fetch(url):
+              req = urllib.request.Request(url, headers={"User-Agent": "cadence-keepalive"})
+              try:
+                  with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+                      return r.status, r.read().decode("utf-8", "replace")
+              except urllib.error.HTTPError as e:
+                  # 503 from Cadence's health route means "database down" and is
+                  # a real answer worth reading, not a transport failure.
+                  return e.code, e.read().decode("utf-8", "replace")
+              except Exception as exc:
+                  return None, f"{type(exc).__name__}: {exc}"
 
-            if [ "$status" != "401" ]; then
-              echo "::error title=$name unreachable::expected 401, got ${status:-no response}. Body: ${body:0:300}"
-              overall=1
-              return
-            fi
+          def check_cadence(body):
+              """Cadence wraps its payload and reports the SELECT 1 explicitly."""
+              data = json.loads(body).get("data", {})
+              db = data.get("checks", {}).get("database", {})
+              if db.get("ok") is not True:
+                  return f"database not ok: {db}"
+              return None
 
-            if ! printf '%s' "$body" | grep -q "$marker"; then
-              echo "::error title=$name did not reach Postgres::got 401 but no '$marker'. The request was rejected before the database was queried, so this run did NOT keep the project warm. Body: ${body:0:300}"
-              overall=1
-              return
-            fi
+          def check_lifequest(body):
+              """LifeQuest's health route only returns ok if its SELECT 1 succeeded."""
+              if json.loads(body).get("status") != "ok":
+                  return f"status not ok: {body[:200]}"
+              return None
 
-            echo "$name OK — reached Postgres and was rejected as expected."
-          }
+          TARGETS = [
+              ("Cadence",   "https://usecadenceapp.vercel.app/api/health", check_cadence),
+              ("LifeQuest", "https://getlifequest.vercel.app/api/health",  check_lifequest),
+          ]
 
-          # Marker strings are the ones only produced AFTER the user lookup runs.
-          probe "Cadence"   "https://usecadenceapp.vercel.app/api/auth/login" "INVALID_CREDENTIALS"
-          probe "LifeQuest" "https://getlifequest.vercel.app/api/auth/login"  "Invalid credentials"
+          failed = False
+          # Probe every target before exiting, so one dead app cannot mask another.
+          for name, url, check in TARGETS:
+              status, body = fetch(url)
+              if status != 200:
+                  print(f"::error title={name} unhealthy::expected 200, got {status}. Body: {body[:300]}")
+                  failed = True
+                  continue
+              try:
+                  problem = check(body)
+              except (ValueError, AttributeError) as exc:
+                  problem = f"unparseable response ({exc}): {body[:200]}"
+              if problem:
+                  print(f"::error title={name} did not reach Postgres::{problem}")
+                  failed = True
+                  continue
+              print(f"{name} OK — health route queried Postgres successfully.")
 
-          exit $overall
+          sys.exit(1 if failed else 0)
+          PY
