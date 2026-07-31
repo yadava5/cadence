@@ -541,10 +541,13 @@ export class TaskListService extends BaseService<
     try {
       this.log('reorder', { taskListIds }, context);
 
-      // Validate all task lists belong to user
+      // One owner-scoped read, ordered in memory. See the note in
+      // CalendarService.reorder — this was the same 1 + N pattern, with the N
+      // issued concurrently against a ten-connection pool, and the per-row
+      // reads unscoped by userId.
       const placeholders = taskListIds.map((_, i) => `$${i + 1}`).join(',');
       const res = await query(
-        `SELECT id FROM task_lists WHERE id IN (${placeholders}) AND "userId" = $${taskListIds.length + 1}`,
+        `SELECT * FROM task_lists WHERE id IN (${placeholders}) AND "userId" = $${taskListIds.length + 1}`,
         [...taskListIds, context.userId!],
         this.db
       );
@@ -554,20 +557,11 @@ export class TaskListService extends BaseService<
         );
       }
 
-      // For now, just return the task lists in the requested order
-      // In a full implementation, you might add an `order` field to the database
-      const orderedTaskLists = await Promise.all(
-        taskListIds.map(async (id) => {
-          const r = await query(
-            'SELECT * FROM task_lists WHERE id = $1',
-            [id],
-            this.db
-          );
-          return r.rows[0];
-        })
+      const byId = new Map(
+        res.rows.map((row: { id: string }) => [row.id, row])
       );
-
-      const results = orderedTaskLists
+      const results = taskListIds
+        .map((id) => byId.get(id))
         .filter(Boolean)
         .map((taskList) => this.transformEntity(taskList));
 

@@ -669,10 +669,21 @@ export class CalendarService extends BaseService<
     try {
       this.log('reorder', { calendarIds }, context);
 
-      // Validate all calendars belong to user
+      // One owner-scoped read, ordered in memory.
+      //
+      // This was a `SELECT id ... IN (...)` ownership check followed by
+      // `Promise.all` firing one `SELECT * ... WHERE id = $1` PER calendar —
+      // so 1 + N queries, and the N went out CONCURRENTLY. Against a pool of
+      // max 10 (lib/config/database.ts) anything past ten queued, and with the
+      // GUC wrapper each is its own BEGIN/set_config/COMMIT. The validation
+      // query directly above had already matched the same ids.
+      //
+      // The per-row reads were also unscoped (`WHERE id = $1`, no userId) and
+      // relied entirely on the preceding check having run. Selecting the rows
+      // and scoping them in the same statement removes that dependency.
       const placeholders = calendarIds.map((_, i) => `$${i + 1}`).join(',');
       const userCalendars = await query(
-        `SELECT id FROM calendars WHERE id IN (${placeholders}) AND "userId" = $${calendarIds.length + 1}`,
+        `SELECT * FROM calendars WHERE id IN (${placeholders}) AND "userId" = $${calendarIds.length + 1}`,
         [...calendarIds, context.userId!],
         this.db
       );
@@ -683,20 +694,11 @@ export class CalendarService extends BaseService<
         );
       }
 
-      // For now, just return the calendars in the requested order
-      // In a full implementation, you might add an `order` field to the database
-      const orderedCalendars = await Promise.all(
-        calendarIds.map(async (id) => {
-          const res = await query(
-            'SELECT * FROM calendars WHERE id = $1',
-            [id],
-            this.db
-          );
-          return res.rows[0];
-        })
+      const byId = new Map(
+        userCalendars.rows.map((row: { id: string }) => [row.id, row])
       );
-
-      const results = orderedCalendars
+      const results = calendarIds
+        .map((id) => byId.get(id))
         .filter(Boolean)
         .map((calendar) => this.transformEntity(calendar));
 

@@ -570,18 +570,16 @@ describe('TaskListService', () => {
 
       mockedQuery.mockImplementation(async (sql: string) => {
         const sqlLower = sql.toLowerCase();
-        // Ownership validation
+        // One owner-scoped batched read. This previously mocked a
+        // `select id ... in (...)` ownership check plus N single-row
+        // `select * ... where id = $1` fetches, which is the 1 + N pattern the
+        // service no longer issues. Rows come back in a DIFFERENT order than
+        // requested, so the assertion below proves the service re-orders them.
         if (
-          sqlLower.includes('select id from task_lists') &&
+          sqlLower.includes('select * from task_lists') &&
           sqlLower.includes('in')
         ) {
-          return createQueryResult(taskListIds.map((id) => ({ id })));
-        }
-        // Individual fetches for ordering
-        if (sqlLower.includes('select * from task_lists where id = $1')) {
-          // Return the appropriate task list based on the param
-          const matchingList = taskLists[0];
-          return createQueryResult([matchingList || taskLists[0]]);
+          return createQueryResult([taskLists[2], taskLists[0], taskLists[1]]);
         }
         return createQueryResult([]);
       });
@@ -589,6 +587,10 @@ describe('TaskListService', () => {
       const result = await taskListService.reorder(taskListIds, mockContext);
 
       expect(result).toHaveLength(3);
+      // Requested order is honoured regardless of the order the rows arrive in.
+      expect(result.map((l) => l.id)).toEqual(taskListIds);
+      // One query, not 1 + N.
+      expect(mockedQuery).toHaveBeenCalledTimes(1);
     });
 
     it('should throw validation error if some task lists are not owned', async () => {
