@@ -5,6 +5,7 @@ import {
   BaseService,
   type ServiceContext,
   type UserOwnedEntity,
+  MAX_LIST_ROWS,
 } from './BaseService.js';
 import { query } from '../config/database.js';
 import { taskListCache, createCacheKey } from '../utils/cache.js';
@@ -192,11 +193,13 @@ export class TaskListService extends BaseService<
       this.log('findAll', { filters }, context);
       const { sql, params } = this.buildWhereClause(filters, context);
       const res = await query<TaskListEntity>(
-        `SELECT * FROM task_lists ${sql} ORDER BY name ASC`,
-        params,
+        `SELECT * FROM task_lists ${sql} ORDER BY name ASC LIMIT $${params.length + 1}`,
+        [...params, MAX_LIST_ROWS + 1],
         this.db
       );
-      return res.rows.map((row) => this.transformEntity(row)); // Database row
+      return this.capRows(res.rows, context).map((row) =>
+        this.transformEntity(row)
+      ); // Database row
     } catch (error) {
       this.log('findAll:error', { error: error.message, filters }, context);
       throw error;

@@ -5,6 +5,7 @@ import {
   BaseService,
   type ServiceContext,
   type UserOwnedEntity,
+  MAX_LIST_ROWS,
 } from './BaseService.js';
 import { query, withTransaction } from '../config/database.js';
 
@@ -142,11 +143,13 @@ export class CalendarService extends BaseService<
       this.log('findAll', { filters }, context);
       const { sql, params } = this.buildWhereClause(filters, context);
       const res = await query<CalendarEntity>(
-        `SELECT * FROM calendars ${sql} ORDER BY "isDefault" DESC, name ASC`,
-        params,
+        `SELECT * FROM calendars ${sql} ORDER BY "isDefault" DESC, name ASC LIMIT $${params.length + 1}`,
+        [...params, MAX_LIST_ROWS + 1],
         this.db
       );
-      const rows = res.rows.map((row) => this.transformEntity(row));
+      const rows = this.capRows(res.rows, context).map((row) =>
+        this.transformEntity(row)
+      );
       return rows;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);

@@ -2,6 +2,7 @@
  * Comprehensive test suite for EventService
  * Tests CRUD operations, recurring events (recurrence), conflict detection, and date filtering
  */
+import { MAX_LIST_ROWS } from '../BaseService.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { EventService } from '../EventService';
 import { query as mockQuery } from '../../config/database.js';
@@ -148,7 +149,11 @@ describe('EventService', () => {
       );
       expect(eventCall).toBeTruthy();
       expect(eventCall?.[0]).toContain('"calendarId" = $2');
-      expect(eventCall?.[1]).toEqual([mockUserId, calendarId]);
+      expect(eventCall?.[1]).toEqual([
+        mockUserId,
+        calendarId,
+        MAX_LIST_ROWS + 1,
+      ]);
       expect(result).toHaveLength(1);
     });
 
@@ -176,7 +181,12 @@ describe('EventService', () => {
       expect(eventCall).toBeTruthy();
       expect(eventCall?.[0]).toContain('"end" >= $2');
       expect(eventCall?.[0]).toContain('start <= $3');
-      expect(eventCall?.[1]).toEqual([mockUserId, start, end]);
+      expect(eventCall?.[1]).toEqual([
+        mockUserId,
+        start,
+        end,
+        MAX_LIST_ROWS + 1,
+      ]);
       expect(result).toHaveLength(1);
     });
 
@@ -1037,7 +1047,12 @@ describe('EventService', () => {
       const eventCall = mockedQuery.mock.calls.find((call) =>
         String(call[0]).includes('FROM events')
       );
-      expect(eventCall?.[1]).toEqual([mockUserId, start, end]);
+      expect(eventCall?.[1]).toEqual([
+        mockUserId,
+        start,
+        end,
+        MAX_LIST_ROWS + 1,
+      ]);
     });
 
     it('should handle concurrent event creation', async () => {

@@ -5,6 +5,7 @@ import {
   BaseService,
   type ServiceContext,
   type BaseEntity,
+  MAX_LIST_ROWS,
 } from './BaseService.js';
 import { query, withTransaction } from '../config/database.js';
 
@@ -292,11 +293,14 @@ export class TagService extends BaseService<
          FROM tags t
          ${usageJoin}
          ${whereSql}
-         ORDER BY t.type ASC, t.name ASC`,
-        params,
+         ORDER BY t.type ASC, t.name ASC
+         LIMIT $${params.length + 1}`,
+        [...params, MAX_LIST_ROWS + 1],
         this.db
       );
-      return res.rows.map((row) => this.transformEntity(row));
+      return this.capRows(res.rows, context).map((row) =>
+        this.transformEntity(row)
+      );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.log('findAll:error', { error: message, filters }, context);

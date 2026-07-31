@@ -2,6 +2,7 @@
  * Comprehensive test suite for TagService
  * Tests CRUD operations, tag merge functionality, and cleanup operations
  */
+import { MAX_LIST_ROWS } from '../BaseService.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TagService } from '../TagService';
 import {
@@ -100,7 +101,7 @@ describe('TagService', () => {
 
       expect(mockedQuery).toHaveBeenCalledWith(
         expect.stringContaining('type = $1'),
-        ['PRIORITY'],
+        ['PRIORITY', MAX_LIST_ROWS + 1],
         expect.anything()
       );
       expect(result).toHaveLength(1);
@@ -118,7 +119,7 @@ describe('TagService', () => {
 
       expect(mockedQuery).toHaveBeenCalledWith(
         expect.stringContaining('name ILIKE $1'),
-        ['%priority%'],
+        ['%priority%', MAX_LIST_ROWS + 1],
         expect.anything()
       );
       expect(result).toHaveLength(1);
@@ -136,7 +137,7 @@ describe('TagService', () => {
       const tagCall = mockedQuery.mock.calls[0];
       expect(String(tagCall[0])).toContain('tk."userId" = $1');
       expect(String(tagCall[0])).toContain('tk.completed = false');
-      expect(tagCall[1]).toEqual([mockUserId]);
+      expect(tagCall[1]).toEqual([mockUserId, MAX_LIST_ROWS + 1]);
       expect(result).toHaveLength(1);
     });
   });

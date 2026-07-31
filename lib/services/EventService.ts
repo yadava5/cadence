@@ -5,6 +5,7 @@ import {
   BaseService,
   type ServiceContext,
   type UserOwnedEntity,
+  MAX_LIST_ROWS,
 } from './BaseService.js';
 import { query } from '../config/database.js';
 
@@ -253,11 +254,13 @@ export class EventService extends BaseService<
       const { sql, params } = this.buildWhereClause(filters, context);
       const order = 'ORDER BY start ASC, "createdAt" DESC';
       const res = await query<EventEntity>(
-        `SELECT * FROM events ${sql} ${order}`,
-        params,
+        `SELECT * FROM events ${sql} ${order} LIMIT $${params.length + 1}`,
+        [...params, MAX_LIST_ROWS + 1],
         this.db
       );
-      const base = res.rows.map((row) => this.transformEntity(row));
+      const base = this.capRows(res.rows, context).map((row) =>
+        this.transformEntity(row)
+      );
       return await this.enrichEntities(base, context);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);

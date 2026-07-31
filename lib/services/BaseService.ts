@@ -42,6 +42,23 @@ export interface BaseServiceConfig {
 /**
  * Abstract base service class
  */
+/**
+ * Safety ceiling for list reads that expose no pagination.
+ *
+ * `GET /api/tasks` had its pagination guard inverted and scanned the whole
+ * table by default; events, calendars, tags and task-lists never had one at
+ * all — their `findAll` is `SELECT * ... ORDER BY ...` with no LIMIT, and their
+ * services do not implement `findPaginated` (BaseService's throws
+ * NOT_IMPLEMENTED), so the handlers could only ever ask for everything.
+ *
+ * The ceiling is high on purpose. These endpoints return a plain array, so a
+ * cap cannot signal truncation in the payload the way `pagination.total` does
+ * for tasks — a low cap would silently hide rows. At 1000 no real account is
+ * affected, the sequential scan is bounded, and `capRows` logs when the ceiling
+ * is actually reached so it is observable rather than invisible.
+ */
+export const MAX_LIST_ROWS = 1000;
+
 export abstract class BaseService<
   TEntity extends BaseEntity = BaseEntity,
   TCreateDTO = Partial<Omit<TEntity, keyof BaseEntity>>,
@@ -163,6 +180,20 @@ export abstract class BaseService<
   /**
    * Log service operation
    */
+  /**
+   * Trims a list read to MAX_LIST_ROWS, logging if the ceiling was reached.
+   * Query one row ABOVE the ceiling so hitting it is detectable.
+   */
+  protected capRows<T>(rows: T[], context?: ServiceContext): T[] {
+    if (rows.length <= MAX_LIST_ROWS) return rows;
+    this.log(
+      'findAll:truncated',
+      { cap: MAX_LIST_ROWS, note: 'result hit the unpaginated ceiling' },
+      context
+    );
+    return rows.slice(0, MAX_LIST_ROWS);
+  }
+
   protected log(
     operation: string,
     data?: Record<string, unknown>,
