@@ -316,7 +316,7 @@ cache.invalidatePattern('tasks:*');
 
 ## Testing
 
-Cadence ships with a broad automated test suite — **89 test files** spanning the frontend, backend, and shared packages.
+Cadence ships with a broad automated test suite — **92 test files** spanning the frontend, backend, and shared packages, plus 13 Playwright specs under `e2e/`. The suite runs 1,168 tests: 635 frontend and 533 backend, with 11 skipped (the Postgres row-level-security module, which needs RLS_TEST_PG_ADMIN_URL).
 
 | Layer             | Tooling                  | Focus                                 |
 | ----------------- | ------------------------ | ------------------------------------- |
