@@ -123,7 +123,7 @@ jobs:
         run: npm run build:shared
 
       - name: Run backend tests
-        run: npm run test:backend:run
+        run: npm run test:backend:run -- --reporter=default --reporter=json --outputFile=${{ runner.temp }}/backend-results.json
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
           # Superuser admin URL that unlocks the real-Postgres RLS enforcement
@@ -132,6 +132,56 @@ jobs:
           # machinery to prove DB-level tenant isolation. Unset locally → the
           # suite skips.
           RLS_TEST_PG_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/test_db
+
+      # ── the suite must have RUN, not merely passed ──────────────────
+      #
+      # rls.postgres.test.ts skips itself when RLS_TEST_PG_ADMIN_URL is unset,
+      # and a skipped suite is GREEN. So a typo in the env block above, a
+      # renamed service, or a dropped variable would silently turn the only
+      # proof of database-level tenant isolation into a no-op, and CI would
+      # keep reporting success.
+      #
+      # Applied solves this in its own backend-ci.yml by parsing the JUnit XML
+      # and failing when the RLS suite reports zero tests or any skip. This is
+      # the same guard against the vitest JSON reporter. Added 2026-08-02 after
+      # a cross-repo audit found the pattern in one repo and not the other.
+      - name: Assert the RLS enforcement suite actually ran
+        if: always()
+        run: |
+          node - <<'JS'
+          const fs = require('fs');
+          const path = process.env.RUNNER_TEMP + '/backend-results.json';
+          if (!fs.existsSync(path)) {
+            console.error('No vitest report at ' + path);
+            process.exit(1);
+          }
+          const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const rls = (report.testResults || []).filter((f) =>
+            String(f.name || '').includes('rls.postgres.test.ts')
+          );
+          if (rls.length === 0) {
+            console.error(
+              'rls.postgres.test.ts did not appear in the run at all. ' +
+              'Tenant isolation is UNVERIFIED by this build.'
+            );
+            process.exit(1);
+          }
+          let ran = 0, skipped = 0;
+          for (const file of rls) {
+            for (const t of file.assertionResults || []) {
+              if (t.status === 'pending' || t.status === 'skipped') skipped++;
+              else ran++;
+            }
+          }
+          console.log(`RLS enforcement suite: ${ran} ran, ${skipped} skipped`);
+          if (ran === 0 || skipped > 0) {
+            console.error(
+              'The RLS enforcement suite did not fully run. Tenant isolation ' +
+              'is UNVERIFIED by this build.'
+            );
+            process.exit(1);
+          }
+          JS
 
   build:
     name: Build
