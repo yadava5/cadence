@@ -84,7 +84,25 @@ export function createApiHandler(
  */
 export function createMethodHandler(
   handlers: Partial<Record<HttpMethod, RouteHandler>>,
-  options?: { rateLimit?: keyof typeof rateLimitPresets }
+  options?: {
+    rateLimit?: keyof typeof rateLimitPresets;
+    /**
+     * Attach `authenticateJWT()` so `req.user` is populated.
+     *
+     * Opt-in rather than default because this same factory serves the routes
+     * that MUST stay public: `healthCheckHandler` below (the uptime probe and
+     * the Supabase keep-alive both depend on it answering unauthenticated),
+     * login, register, refresh, and the Google OAuth entry/callback.
+     *
+     * Every handler that reads `req.user` needs this. Without it the chain was
+     * cors → requestId → requestLogger → rateLimit, so `req.user` was always
+     * undefined and nine endpoints answered 401 unconditionally in production
+     * — `tasks/stats`, `tasks/bulk`, `events/conflicts`, `tags/{stats,merge,
+     * cleanup}`, `task-lists/stats`, `attachments/{stats,cleanup}` — plus
+     * `auth/logout`, whose "log out from all devices" therefore never ran.
+     */
+    requireAuth?: boolean;
+  }
 ) {
   // Auth routes pass `{ rateLimit: 'auth' }` to get the strict 5/15min limiter
   // instead of the lenient 100/15min api default — the difference between a
@@ -102,13 +120,18 @@ export function createMethodHandler(
         );
       }
 
-      // Apply basic middleware
-      await composeMiddleware(
+      const middlewares = [
         corsMiddleware(),
         requestIdMiddleware(),
         requestLogger(),
-        limiter
-      )(req, res, async () => {
+        limiter,
+      ];
+      if (options?.requireAuth) {
+        middlewares.push(authenticateJWT());
+      }
+
+      // Apply basic middleware
+      await composeMiddleware(...middlewares)(req, res, async () => {
         await handler(req, res);
       });
     }
