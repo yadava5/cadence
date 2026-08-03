@@ -88,6 +88,13 @@ CREATE TABLE "tasks" (
     "completed" BOOLEAN NOT NULL DEFAULT false,
     "completedAt" TIMESTAMP(3),
     "scheduledDate" TIMESTAMP(3),
+    -- Kanban status. NOT in prisma/schema.prisma, which is drift this fixture
+    -- inherited: TaskService.create writes `status` on EVERY insert and
+    -- TaskService.ts:168 backfills `WHERE status IS NULL`, so the column exists
+    -- in the live database but was never written back into any schema source.
+    -- Nullable and undefaulted, matching the backfill's assumption that older
+    -- rows arrived without it.
+    "status" TEXT,
     "priority" "Priority" NOT NULL DEFAULT 'MEDIUM',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -128,6 +135,9 @@ CREATE TABLE "attachments" (
     "fileUrl" TEXT NOT NULL,
     "fileType" TEXT NOT NULL,
     "fileSize" INTEGER NOT NULL,
+    -- Also absent from prisma/schema.prisma. AttachmentService types it
+    -- (thumbnailUrl?: string | null) and selects it, so the live table has it.
+    "thumbnailUrl" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "taskId" TEXT NOT NULL,
 
