@@ -49,7 +49,11 @@ if (!ref) die(`cannot derive the project ref from username "${u.username}"`);
 
 const nu = new URL(OLD);
 nu.username = `${APP_ROLE}.${ref}`;
-nu.password = encodeURIComponent(PW);
+/* NOT encodeURIComponent(PW). The URL password setter percent-encodes on its
+   own, so pre-encoding double-encodes: pg decodes once and authenticates with
+   the escaped form. Harmless for an alphanumeric password, silently wrong for
+   one containing @ : / ? # or %. */
+nu.password = PW;
 const NEW = nu.toString();
 
 const ssl = { rejectUnauthorized: false };
