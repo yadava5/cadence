@@ -29,10 +29,10 @@ jobs:
     name: Scorecard analysis
     runs-on: ubuntu-latest
     permissions:
-      security-events: write   # upload SARIF to code scanning
-      id-token: write          # OIDC identity for publish_results
+      security-events: write # upload SARIF to code scanning
+      id-token: write # OIDC identity for publish_results
       contents: read
-      actions: read            # several checks enumerate workflows and runs
+      actions: read # several checks enumerate workflows and runs
 
     steps:
       - name: Checkout
