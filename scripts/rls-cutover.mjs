@@ -22,19 +22,30 @@ const ROTATE = Boolean(process.env.NEW_DB_PASSWORD);
 const PW = process.env.NEW_DB_PASSWORD || process.env.DB_PASSWORD;
 const APP_ROLE = 'cadence_app';
 const say = (m) => console.log(m);
-const die = (m) => { console.error(`\n  ABORTED: ${m}\n  Vercel was NOT changed.\n`); process.exit(1); };
+const die = (m) => {
+  console.error(`\n  ABORTED: ${m}\n  Vercel was NOT changed.\n`);
+  process.exit(1);
+};
 
 if (!PW || PW.includes('PASTE'))
-  die('set DB_PASSWORD to the password you already gave cadence_app, or NEW_DB_PASSWORD to rotate it first');
+  die(
+    'set DB_PASSWORD to the password you already gave cadence_app, or NEW_DB_PASSWORD to rotate it first'
+  );
 if (ROTATE && PW.length < 16)
   die('NEW_DB_PASSWORD should be at least 16 characters');
 
-const sh = (c, a, o = {}) => execFileSync(c, a, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], ...o });
+const sh = (c, a, o = {}) =>
+  execFileSync(c, a, {
+    encoding: 'utf8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    ...o,
+  });
 const tmp = join(process.cwd(), '.env.cutover.tmp');
 
 say('1/6  reading the current production DATABASE_URL');
 sh('vercel', ['env', 'pull', tmp, '--environment=production', '--yes']);
-const OLD = (readFileSync(tmp, 'utf8').match(/^DATABASE_URL="?(.+?)"?$/m) || [])[1];
+const OLD = (readFileSync(tmp, 'utf8').match(/^DATABASE_URL="?(.+?)"?$/m) ||
+  [])[1];
 rmSync(tmp, { force: true });
 if (!OLD) die('no DATABASE_URL found in the production environment');
 
@@ -43,7 +54,8 @@ writeFileSync(backup, OLD + '\n', { mode: 0o600 });
 say(`     old value saved to ${backup}`);
 
 const u = new URL(OLD);
-if (u.username.startsWith(APP_ROLE)) die(`already switched to ${APP_ROLE} -- nothing to do`);
+if (u.username.startsWith(APP_ROLE))
+  die(`already switched to ${APP_ROLE} -- nothing to do`);
 const ref = u.username.split('.').slice(1).join('.');
 if (!ref) die(`cannot derive the project ref from username "${u.username}"`);
 
@@ -57,7 +69,11 @@ nu.password = PW;
 const NEW = nu.toString();
 
 const ssl = { rejectUnauthorized: false };
-say(ROTATE ? '2/6  rotating the password' : '2/6  using the password already set (no rotation)');
+say(
+  ROTATE
+    ? '2/6  rotating the password'
+    : '2/6  using the password already set (no rotation)'
+);
 const admin = new pg.Pool({ connectionString: OLD, ssl, max: 1 });
 if (ROTATE) {
   /* ALTER ROLE is a utility statement, and Postgres does not accept bind
@@ -67,11 +83,12 @@ if (ROTATE) {
      a backslash are refused rather than reasoned about. */
   if (PW.includes('\\')) die('password must not contain a backslash');
 
-  /* Over a DIRECT connection, not the pooler. Rotating through Supavisor
-     succeeds at the SQL level and then Supavisor keeps rejecting the new
-     password -- it does not pick up a credential it proxied itself. Measured:
-     rotate direct, and the pooler accepts on the first attempt at t+0s;
-     rotate through the pooler, and it still refuses six attempts later. */
+  /* Over a DIRECT connection rather than the pooler. This was originally added
+     on the theory that Supavisor will not pick up a credential it proxied
+     itself; that theory turned out to be wrong -- rotating direct and
+     connecting immediately still failed once. The retry in step 4 is what
+     actually makes rotation reliable. Direct is kept because the rotation has
+     no reason to go through a pooler, not because it fixes anything. */
   const d = new URL(OLD);
   d.username = 'postgres';
   d.host = `db.${ref}.supabase.co`;
@@ -79,19 +96,29 @@ if (ROTATE) {
   d.search = '';
   const direct = new pg.Pool({ connectionString: d.toString(), ssl, max: 1 });
   try {
-    await direct.query(`ALTER ROLE ${APP_ROLE} WITH PASSWORD '${PW.replace(/'/g, "''")}'`);
-  } finally { await direct.end(); }
+    await direct.query(
+      `ALTER ROLE ${APP_ROLE} WITH PASSWORD '${PW.replace(/'/g, "''")}'`
+    );
+  } finally {
+    await direct.end();
+  }
 }
 
 say('3/6  reading ground truth as the current (bypassrls) role');
-const truth = (await admin.query(
-  `SELECT t."userId" o, count(*)::int tasks,
+const truth = (
+  await admin.query(
+    `SELECT t."userId" o, count(*)::int tasks,
      (SELECT count(*)::int FROM calendars c WHERE c."userId"=t."userId") cals,
      (SELECT count(*)::int FROM tags g WHERE g."userId"=t."userId") tags
-   FROM tasks t GROUP BY 1 ORDER BY 2 DESC LIMIT 1`)).rows[0];
+   FROM tasks t GROUP BY 1 ORDER BY 2 DESC LIMIT 1`
+  )
+).rows[0];
 await admin.end();
-if (!truth) die('no tasks found -- refusing to verify against an empty database');
-say(`     tenant ${truth.o.slice(0, 8)}...  tasks=${truth.tasks} calendars=${truth.cals} tags=${truth.tags}`);
+if (!truth)
+  die('no tasks found -- refusing to verify against an empty database');
+say(
+  `     tenant ${truth.o.slice(0, 8)}...  tasks=${truth.tasks} calendars=${truth.cals} tags=${truth.tags}`
+);
 
 say('4/6  verifying the NEW credential through the production pooler');
 /* Supavisor does not accept a freshly rotated password immediately -- it caches
@@ -101,18 +128,26 @@ say('4/6  verifying the NEW credential through the production pooler');
    usable, and it is bounded so a genuinely wrong password still fails. */
 const app = new pg.Pool({ connectionString: NEW, ssl, max: 2 });
 for (let i = 1; ; i++) {
-  try { await app.query('select 1'); if (i > 1) say(`     accepted on attempt ${i}`); break; }
-  catch (e) {
+  try {
+    await app.query('select 1');
+    if (i > 1) say(`     accepted on attempt ${i}`);
+    break;
+  } catch (e) {
     if (e.code !== '28P01' || i >= 12) die(`${e.message} (attempt ${i})`);
     if (i === 1) say('     waiting for the pooler to pick up the new password');
     await new Promise((r) => setTimeout(r, 5000));
   }
 }
 try {
-  const who = (await app.query(
-    `select current_user u,(select rolbypassrls from pg_roles where rolname=current_user) b`)).rows[0];
-  if (who.u !== APP_ROLE) die(`connected as "${who.u}", expected "${APP_ROLE}"`);
-  if (who.b !== false) die(`${APP_ROLE} has BYPASSRLS -- the policies would be inert`);
+  const who = (
+    await app.query(
+      `select current_user u,(select rolbypassrls from pg_roles where rolname=current_user) b`
+    )
+  ).rows[0];
+  if (who.u !== APP_ROLE)
+    die(`connected as "${who.u}", expected "${APP_ROLE}"`);
+  if (who.b !== false)
+    die(`${APP_ROLE} has BYPASSRLS -- the policies would be inert`);
   say(`     connected as ${who.u}, bypassrls=false`);
 
   const c = await app.connect();
@@ -129,15 +164,30 @@ try {
     await c.query('BEGIN');
     unbound = (await c.query('select count(*)::int n from tasks')).rows[0].n;
     await c.query('COMMIT');
-  } finally { c.release(); }
+  } finally {
+    c.release();
+  }
 
-  if (got.tasks !== truth.tasks || got.cals !== truth.cals || got.tags !== truth.tags)
-    die(`scoped read returned tasks=${got.tasks} calendars=${got.cals} tags=${got.tags}, expected ${truth.tasks}/${truth.cals}/${truth.tags}. The GUC is not reaching the query -- this is the empty-list failure. Do not switch.`);
-  say(`     scoped read tasks=${got.tasks} calendars=${got.cals} tags=${got.tags}  (exact match)`);
+  if (
+    got.tasks !== truth.tasks ||
+    got.cals !== truth.cals ||
+    got.tags !== truth.tags
+  )
+    die(
+      `scoped read returned tasks=${got.tasks} calendars=${got.cals} tags=${got.tags}, expected ${truth.tasks}/${truth.cals}/${truth.tags}. The GUC is not reaching the query -- this is the empty-list failure. Do not switch.`
+    );
+  say(
+    `     scoped read tasks=${got.tasks} calendars=${got.cals} tags=${got.tags}  (exact match)`
+  );
 
-  if (unbound !== 0) die(`without app.user_id the role still sees ${unbound} tasks -- RLS is not failing closed`);
+  if (unbound !== 0)
+    die(
+      `without app.user_id the role still sees ${unbound} tasks -- RLS is not failing closed`
+    );
   say('     fail-closed: 0 rows without app.user_id');
-} finally { await app.end(); }
+} finally {
+  await app.end();
+}
 
 if (process.env.DRY_RUN) {
   say('\n  DRY RUN: every check passed. Vercel was not touched.');
@@ -146,13 +196,21 @@ if (process.env.DRY_RUN) {
 }
 
 say('5/6  all checks passed -- repointing Vercel production');
-try { sh('vercel', ['env', 'rm', 'DATABASE_URL', 'production', '--yes']); } catch { /* absent is fine */ }
+try {
+  sh('vercel', ['env', 'rm', 'DATABASE_URL', 'production', '--yes']);
+} catch {
+  /* absent is fine */
+}
 sh('vercel', ['env', 'add', 'DATABASE_URL', 'production'], { input: NEW });
 
 say('6/6  redeploying (env vars bind at build time)');
 const out = sh('vercel', ['--prod']);
 say(out.trim().split('\n').slice(-3).join('\n'));
 
-say(`\n  DONE. Cadence now runs as ${APP_ROLE} with RLS enforced by the database.`);
+say(
+  `\n  DONE. Cadence now runs as ${APP_ROLE} with RLS enforced by the database.`
+);
 say(`  Roll back with:  vercel env rm DATABASE_URL production --yes && \\`);
-say(`                   vercel env add DATABASE_URL production < ${backup} && vercel --prod\n`);
+say(
+  `                   vercel env add DATABASE_URL production < ${backup} && vercel --prod\n`
+);
