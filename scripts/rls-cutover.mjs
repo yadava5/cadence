@@ -15,13 +15,19 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import pg from 'pg';
 
-const PW = process.env.NEW_DB_PASSWORD;
+/* NEW_DB_PASSWORD rotates to that value first. DB_PASSWORD skips the rotation
+   and uses a password already set by hand -- same verification either way, and
+   the verification is the part that matters. */
+const ROTATE = Boolean(process.env.NEW_DB_PASSWORD);
+const PW = process.env.NEW_DB_PASSWORD || process.env.DB_PASSWORD;
 const APP_ROLE = 'cadence_app';
 const say = (m) => console.log(m);
 const die = (m) => { console.error(`\n  ABORTED: ${m}\n  Vercel was NOT changed.\n`); process.exit(1); };
 
-if (!PW || PW.includes('PASTE') || PW.length < 16)
-  die('set NEW_DB_PASSWORD to a random string of at least 16 characters');
+if (!PW || PW.includes('PASTE'))
+  die('set DB_PASSWORD to the password you already gave cadence_app, or NEW_DB_PASSWORD to rotate it first');
+if (ROTATE && PW.length < 16)
+  die('NEW_DB_PASSWORD should be at least 16 characters');
 
 const sh = (c, a, o = {}) => execFileSync(c, a, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], ...o });
 const tmp = join(process.cwd(), '.env.cutover.tmp');
@@ -47,9 +53,9 @@ nu.password = encodeURIComponent(PW);
 const NEW = nu.toString();
 
 const ssl = { rejectUnauthorized: false };
-say('2/6  rotating the password');
+say(ROTATE ? '2/6  rotating the password' : '2/6  using the password already set (no rotation)');
 const admin = new pg.Pool({ connectionString: OLD, ssl, max: 1 });
-await admin.query(`ALTER ROLE ${APP_ROLE} WITH PASSWORD $1`, [PW]);
+if (ROTATE) await admin.query(`ALTER ROLE ${APP_ROLE} WITH PASSWORD $1`, [PW]);
 
 say('3/6  reading ground truth as the current (bypassrls) role');
 const truth = (await admin.query(
