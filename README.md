@@ -6,7 +6,7 @@
 <h1 align="center">Cadence</h1>
 
 <p align="center">
-  <strong>A full-stack calendar and task manager that turns plain-English input into scheduled, structured work — with NLP parsing, multi-calendar support, and real-time conflict detection.</strong>
+  <strong>A full-stack calendar and task manager that turns plain-English input into scheduled, structured work — with a four-parser NLP pipeline, multi-calendar support, and owner-scoped multi-tenant data access.</strong>
 </p>
 
 <p align="center">
@@ -39,7 +39,7 @@ Under the hood it pairs a React 19 frontend with a serverless PostgreSQL backend
 - **Natural-language task entry** — a four-parser pipeline (dates → hashtags → priority → named entities) with confidence-weighted conflict resolution over overlapping spans.
 - **One function, full API** — 36 route handlers are dispatched by a single catch-all serverless function, keeping the whole backend inside Vercel's Hobby-tier 12-function limit without collapsing any handler logic.
 - **End-to-end type safety** — types and Zod validation schemas are shared between the client and server, so the contract is enforced in one place.
-- **Real scheduling logic** — multi-calendar visibility, recurring events (rrule), drag-and-drop, and overlap-aware conflict detection.
+- **Real scheduling logic** — multi-calendar visibility, recurring events (rrule), and drag-and-drop.
 - **Serverless-first data layer** — pure SQL over `pg` with connection pooling, composite indexes, and an in-memory TTL cache tuned for cold starts.
 
 ---
@@ -53,7 +53,7 @@ Under the hood it pairs a React 19 frontend with a serverless PostgreSQL backend
 - **Kanban board** — drag-and-drop status columns
 - **Smart grouping** — organize by task list, due date, or priority
 - **File attachments** — upload and preview images, PDFs, and documents (Vercel Blob)
-- **Task analytics** — completion metrics and trends dashboard
+- **Task analytics** — completion metrics and trends dashboard, computed client-side from the loaded task set
 
 ### Smart input (NLP)
 
@@ -89,7 +89,7 @@ Meta:  { date: Date, priority: HIGH, person: "John" }
 ### Calendar & events
 
 - **Multi-calendar support** — separate calendars with color coding and visibility toggles
-- **Conflict detection** — overlap checking before an event is saved
+- **Conflict detection (API only)** — `EventService.getConflicts` computes overlap start, end and duration against the user's other events, exposed at `GET /api/events/conflicts`. It is **not** wired into the save path and no UI surfaces it yet.
 - **Recurring events** — rrule-based daily, weekly, monthly, and custom patterns
 - **Drag & drop** — schedule tasks directly onto the calendar
 - **Multiple views** — day grid, time grid, and agenda list (FullCalendar)
