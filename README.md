@@ -316,7 +316,22 @@ cache.invalidatePattern('tasks:*');
 
 ## Testing
 
-Cadence ships with a broad automated test suite — **92 test files** spanning the frontend, backend, and shared packages, plus 13 Playwright specs under `e2e/`. The suite runs 1,168 tests: 635 frontend and 533 backend, with 11 skipped (the Postgres row-level-security module, which needs RLS_TEST_PG_ADMIN_URL).
+Cadence ships with a broad automated test suite — **92 test files** spanning the frontend, backend, and shared packages, plus 13 Playwright specs under `e2e/`. The suite runs **1,179 tests: 635 frontend and 544 backend, with 0 skipped.**
+
+The 11 that used to be skipped are the Postgres row-level-security module. They needed a live database from an environment variable that no workflow set, so they had never executed — anywhere, once. They now start their own `postgres:16` via testcontainers when `RLS_TEST_PG_ADMIN_URL` is absent, which means the isolation policies are _demonstrated_ rather than merely written. CI additionally asserts that the suite ran and that nothing was skipped, because a skipped security test and a passing one produce the same green tick.
+
+Coverage, measured rather than asserted:
+
+| Suite    | Tests |      Line | Branch |
+| -------- | ----: | --------: | -----: |
+| Backend  |   544 | **67.1%** |  75.7% |
+| Frontend |   635 |     18.0% |  67.1% |
+
+The frontend line figure is low and is not a gap to close with component unit tests. That surface is exercised by the Playwright suite, which a v8 coverage pass over a Vitest run cannot observe — 18% lines against 67% branches is the signature of exactly that. No line-coverage gate is set on it, because such a gate pushes effort toward shallow tests that raise the number and find nothing.
+
+```bash
+npm run test:backend:coverage   # backend, with coverage
+```
 
 | Layer             | Tooling                  | Focus                                 |
 | ----------------- | ------------------------ | ------------------------------------- |
