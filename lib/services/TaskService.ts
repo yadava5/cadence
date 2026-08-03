@@ -622,17 +622,31 @@ export class TaskService extends BaseService<
         if (data.tags && data.tags.length > 0) {
           for (const tagData of data.tags) {
             const name = tagData.name.trim().toLowerCase();
+            // Tags are owned per user, so both the insert and the lookup have
+            // to say whose. This block predates that: it inserted without a
+            // "userId" and arbitrated on `(name)`, the global unique that
+            // 0001a replaced with ("userId", name). After the migration the
+            // arbiter no longer exists and every tagged task creation failed
+            // with `there is no unique or exclusion constraint matching the ON
+            // CONFLICT specification`.
             await query(
-              `INSERT INTO tags (id, name, type, color) VALUES (gen_random_uuid()::text, $1, $2, $3)
-               ON CONFLICT (name) DO NOTHING`,
-              [name, tagData.type, tagData.color ?? null],
+              `INSERT INTO tags (id, name, type, color, "userId")
+               VALUES (gen_random_uuid()::text, $1, $2, $3, $4)
+               ON CONFLICT ("userId", name) DO NOTHING`,
+              [name, tagData.type, tagData.color ?? null, context!.userId!],
               client
             );
             const tagRow = await query<{ id: string }>(
-              `SELECT id FROM tags WHERE name = $1`,
-              [name],
+              `SELECT id FROM tags WHERE name = $1 AND "userId" = $2`,
+              [name, context!.userId!],
               client
             );
+            // Unscoped, this read could return another tenant's tag; under RLS
+            // it returns nothing instead, and rows[0].id would throw. Fail with
+            // something that names the tag.
+            if (!tagRow.rows[0]) {
+              throw new Error(`could not resolve tag "${name}" for this user`);
+            }
             const tagId = tagRow.rows[0].id;
             await query(
               `INSERT INTO "task_tags" ("taskId", "tagId", value, "displayText", "iconName")
