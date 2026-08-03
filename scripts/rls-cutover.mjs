@@ -59,7 +59,29 @@ const NEW = nu.toString();
 const ssl = { rejectUnauthorized: false };
 say(ROTATE ? '2/6  rotating the password' : '2/6  using the password already set (no rotation)');
 const admin = new pg.Pool({ connectionString: OLD, ssl, max: 1 });
-if (ROTATE) await admin.query(`ALTER ROLE ${APP_ROLE} WITH PASSWORD $1`, [PW]);
+if (ROTATE) {
+  /* ALTER ROLE is a utility statement, and Postgres does not accept bind
+     parameters in one -- `WITH PASSWORD $1` is a syntax error at parse time,
+     not a value. The literal has to be built client-side, doing the quote
+     doubling that quote_literal() would have done server-side. Passwords with
+     a backslash are refused rather than reasoned about. */
+  if (PW.includes('\\')) die('password must not contain a backslash');
+
+  /* Over a DIRECT connection, not the pooler. Rotating through Supavisor
+     succeeds at the SQL level and then Supavisor keeps rejecting the new
+     password -- it does not pick up a credential it proxied itself. Measured:
+     rotate direct, and the pooler accepts on the first attempt at t+0s;
+     rotate through the pooler, and it still refuses six attempts later. */
+  const d = new URL(OLD);
+  d.username = 'postgres';
+  d.host = `db.${ref}.supabase.co`;
+  d.port = '5432';
+  d.search = '';
+  const direct = new pg.Pool({ connectionString: d.toString(), ssl, max: 1 });
+  try {
+    await direct.query(`ALTER ROLE ${APP_ROLE} WITH PASSWORD '${PW.replace(/'/g, "''")}'`);
+  } finally { await direct.end(); }
+}
 
 say('3/6  reading ground truth as the current (bypassrls) role');
 const truth = (await admin.query(
@@ -72,7 +94,20 @@ if (!truth) die('no tasks found -- refusing to verify against an empty database'
 say(`     tenant ${truth.o.slice(0, 8)}...  tasks=${truth.tasks} calendars=${truth.cals} tags=${truth.tags}`);
 
 say('4/6  verifying the NEW credential through the production pooler');
+/* Supavisor does not accept a freshly rotated password immediately -- it caches
+   the SCRAM verifier and refreshes on its own schedule. Connecting within a
+   second of the ALTER fails with 28P01 every time; the same credential is
+   accepted a few seconds later. This retry is what makes the rotation path
+   usable, and it is bounded so a genuinely wrong password still fails. */
 const app = new pg.Pool({ connectionString: NEW, ssl, max: 2 });
+for (let i = 1; ; i++) {
+  try { await app.query('select 1'); if (i > 1) say(`     accepted on attempt ${i}`); break; }
+  catch (e) {
+    if (e.code !== '28P01' || i >= 12) die(`${e.message} (attempt ${i})`);
+    if (i === 1) say('     waiting for the pooler to pick up the new password');
+    await new Promise((r) => setTimeout(r, 5000));
+  }
+}
 try {
   const who = (await app.query(
     `select current_user u,(select rolbypassrls from pg_roles where rolname=current_user) b`)).rows[0];
@@ -103,6 +138,12 @@ try {
   if (unbound !== 0) die(`without app.user_id the role still sees ${unbound} tasks -- RLS is not failing closed`);
   say('     fail-closed: 0 rows without app.user_id');
 } finally { await app.end(); }
+
+if (process.env.DRY_RUN) {
+  say('\n  DRY RUN: every check passed. Vercel was not touched.');
+  say('  Re-run without DRY_RUN to switch.\n');
+  process.exit(0);
+}
 
 say('5/6  all checks passed -- repointing Vercel production');
 try { sh('vercel', ['env', 'rm', 'DATABASE_URL', 'production', '--yes']); } catch { /* absent is fine */ }
