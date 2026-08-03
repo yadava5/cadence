@@ -62,7 +62,22 @@ WHERE tg.id = sub.tag_id
 --     Caught by rehearsing this migration against a replica of the live tag
 --     data rather than reading it. Uniqueness is re-established per user at
 --     the end, which is the correct shape once tags are owned.
+--     AND IT IS AN INDEX, NOT A CONSTRAINT. In the live database
+--     tags_name_key is `CREATE UNIQUE INDEX`, not `ADD CONSTRAINT`.
+--     `ALTER TABLE ... DROP CONSTRAINT IF EXISTS` matches nothing there and
+--     succeeds silently, so the global uniqueness survives. Both forms are
+--     dropped below because the schema history is inconsistent about which
+--     was used.
 ALTER TABLE public.tags DROP CONSTRAINT IF EXISTS tags_name_key;
+DROP INDEX IF EXISTS public.tags_name_key;
+
+--     The per-user index is created HERE, not at the end, because step 4 names
+--     it as an ON CONFLICT arbiter and an arbiter must already exist. It can be
+--     created now precisely because global uniqueness has just been removed.
+--     Partial (WHERE "userId" IS NOT NULL) so it tolerates the orphan rows that
+--     still have a NULL owner at this point.
+CREATE UNIQUE INDEX IF NOT EXISTS "tags_userId_name_key"
+  ON public.tags ("userId", name);
 
 -- 3. Split tags shared across users: clone per additional owner and repoint
 --    that owner's task_tags at the clone. (Identical to 0001.)
@@ -108,9 +123,18 @@ BEGIN
     SELECT id, name, type, color FROM public.tags WHERE "userId" IS NULL
   LOOP
     FOR u IN SELECT id FROM public.users LOOP
+      -- NOT `ON CONFLICT DO NOTHING`. That is what turned this migration into
+      -- a data-loss bug on the first live run: the global unique index had
+      -- survived (see 2b), every clone INSERT violated it, DO NOTHING
+      -- swallowed the error, and the DELETE below then removed the original.
+      -- Four tags vanished and the migration reported success.
+      --
+      -- Naming the arbiter means a conflict can only be the intended one --
+      -- this user already owns a tag of this name -- and any OTHER violation
+      -- raises instead of being silently absorbed.
       INSERT INTO public.tags (id, name, type, color, "userId")
       VALUES (gen_random_uuid()::text, orphan.name, orphan.type, orphan.color, u.id)
-      ON CONFLICT DO NOTHING;
+      ON CONFLICT ("userId", name) DO NOTHING;
     END LOOP;
     -- The unowned original has been replaced by per-user copies. Any
     -- task_tags row pointing at it would already have given it an owner in
@@ -136,8 +160,6 @@ END $$;
 
 -- 7. Uniqueness moves from global to per-user: two people may both have
 --    "urgent" without colliding.
-CREATE UNIQUE INDEX IF NOT EXISTS "tags_userId_name_key"
-  ON public.tags ("userId", name);
 CREATE INDEX IF NOT EXISTS "tags_userId_idx" ON public.tags ("userId");
 
 COMMIT;
