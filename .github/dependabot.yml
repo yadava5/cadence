@@ -1,0 +1,70 @@
+# Dependabot keeps the two ecosystems this repository actually resolves at
+# build time under weekly review.
+#
+# ## Why there is a single npm entry at the root
+#
+# This is an npm *workspaces* monorepo: the root package.json declares
+# `workspaces: ["packages/*", "apps/*"]`, and there is exactly one lockfile,
+# package-lock.json at the root. Dependabot resolves workspace manifests from
+# that root lockfile, so `directory: "/"` already covers
+# packages/shared/package.json and packages/backend/package.json.
+#
+# Adding separate entries for /packages/shared and /packages/backend would be
+# worse than redundant: neither directory has a lockfile of its own, so a PR
+# raised against one of them would bump a workspace manifest without updating
+# the root lock, and `npm ci` in ci.yml would then fail on the mismatch.
+#
+# ## Why there is no docker entry
+#
+# docker/ holds only postgres/init.sql. There is no Dockerfile anywhere in the
+# tree, so a docker ecosystem entry would have nothing to update.
+#
+# ## Grouping
+#
+# Ungrouped minor/patch bumps across ~120 direct dependencies produce more PRs
+# than a solo maintainer can review, and unreviewed dependency PRs are how a
+# supply-chain change lands unnoticed. Minor and patch updates are batched into
+# one PR per ecosystem per week; majors stay separate because they are the ones
+# that need a human reading the changelog.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: America/New_York
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: build
+      prefix-development: chore
+      include: scope
+    groups:
+      npm-minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+
+  # Every workflow in .github/workflows/ pins third-party actions by commit SHA
+  # (see codeql.yml, gitleaks.yml, scorecard.yml). A pinned SHA never floats to
+  # a fixed version on its own, which is the point -- and the reason this entry
+  # is required rather than optional. Without it the pins silently rot.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: America/New_York
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      github-actions:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
