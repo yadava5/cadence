@@ -15,16 +15,39 @@ contains a live credential and must never be committed).
 
 ## What is already done
 
-| step | change                                                        | verified by                                          |
-| ---- | ------------------------------------------------------------- | ---------------------------------------------------- |
-| 1    | `REVOKE` all grants from `anon` / `authenticated` on 9 tables | `pg_class.relacl` empty of those roles               |
-| 2    | `0001a` — `tags.userId`, backfill, per-user unique, FK        | 15 rows, 7 names, 0 unowned, all `task_tags` resolve |
-| 3    | `0002` — `ENABLE` + `FORCE` RLS, 22 policies, 7 tables        | `pg_class.relrowsecurity AND relforcerowsecurity`    |
-| 3b   | `cadence_app` role, `NOSUPERUSER NOBYPASSRLS`, granted        | see the proof below                                  |
-| 4    | `DATABASE_URL` switched to `cadence_app` (2026-08-03)         | rollback string saved 2026-08-03; role proof above   |
+| step | change                                                                                                | verified by                                                   |
+| ---- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| 1    | `REVOKE` all grants from `anon` / `authenticated` on 9 tables                                         | `pg_class.relacl` empty of those roles                        |
+| 2    | `0001a` — `tags.userId`, backfill, per-user unique, FK                                                | 15 rows, 7 names, 0 unowned, all `task_tags` resolve          |
+| 3    | `0002` — `ENABLE` + `FORCE` RLS, 22 policies, 7 tables                                                | `pg_class.relrowsecurity AND relforcerowsecurity`             |
+| 3b   | `cadence_app` role, `NOSUPERUSER NOBYPASSRLS`, granted                                                | see the proof below                                           |
+| 4    | `DATABASE_URL` switched to `cadence_app` (2026-08-03)                                                 | rollback string saved 2026-08-03; role proof above            |
+| 5    | `0004` — `ENABLE` (no `FORCE`) + one permissive policy each on `users` / `user_profiles` (2026-08-07) | `SET LOCAL ROLE cadence_app` probe identical before and after |
 
-`users` and `user_profiles` are deliberately NOT RLS'd: they are read before a
-user is authenticated, so a policy keyed on `app.user_id` would deadlock login.
+`users` and `user_profiles` are still **not** scoped by a self-referential
+policy, and must never be: they are read before a user is authenticated, so a
+policy keyed on `app.user_id` would deadlock login. What `0004` changed is only
+that RLS is now switched **on** for them with a permissive `FOR ALL TO
+cadence_app` policy, so the schema reads uniformly. Access is unchanged.
+
+**`0004` did not close an exposure, and the record should not be read as if it
+did.** Step 1 of this table already removed every `anon`/`authenticated` grant
+on all nine tables, and that was re-measured on 2026-08-07 before `0004` was
+written: those two roles hold zero privileges anywhere in `public`, and
+Supabase's security advisor returns an empty lint set because PostgREST has no
+grants with which to reach the tables at all. Grants are the control here; RLS
+on these two is defence in depth behind a door that is already locked.
+
+**The form matters more than the change.** Enabling RLS on these tables the
+obvious way — `ENABLE` with no policy, mirroring the other seven — is a total
+login outage, and that was demonstrated rather than reasoned about. Inside a
+rolled-back transaction on production, `ALTER TABLE public.users ENABLE ROW
+LEVEL SECURITY` with no policy, probed as `cadence_app`, returned **0 rows**
+for `SELECT ... FROM users WHERE email = 'john@example.com'` — the first query
+of every login. Plain `ENABLE` binds every non-owner role; `FORCE` is what
+additionally binds the owner. `cadence_app` is a non-owner with `NOBYPASSRLS`,
+so it is bound the moment RLS goes on. Hence: no `FORCE`, and a permissive
+policy that hands `cadence_app` back exactly what `GRANT` already gave it.
 
 ## The proof that the policies actually scope
 
