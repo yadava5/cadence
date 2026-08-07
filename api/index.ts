@@ -45,6 +45,7 @@ import tasksBulk from '../server-handlers/tasks/bulk.js';
 import tasksStats from '../server-handlers/tasks/stats.js';
 import taskById from '../server-handlers/tasks/[id].js';
 import upload from '../server-handlers/upload/index.js';
+import demoReanchor from '../server-handlers/demo/reanchor.js';
 
 type Handler = (
   req: VercelRequest,
@@ -89,6 +90,8 @@ const ROUTES: Array<[string[], Handler]> = [
   [['tasks', 'stats'], tasksStats],
   [['tasks', ':id'], taskById],
   [['upload'], upload],
+  // Answers 404 unless DEMO_REANCHOR_SECRET is set; see the handler's header.
+  [['demo', 'reanchor'], demoReanchor],
 ];
 
 function match(
