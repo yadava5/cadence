@@ -15,8 +15,9 @@ import { COVER } from "../content";
  *
  *   front — example 1, all three beats (an event → THU), joined by a thin
  *           emerald thread: the pipeline, read top to bottom.
- *   back  — the RESIDUE of example 2: an empty prompt with a resting caret
- *           and the task already filed on FRI. No sentence, no chips — the
+ *   back  — the RESIDUE of example 2: the caret reset to the start with the
+ *           sentence dissolving away behind it, and the task already filed
+ *           on FRI. The sentence is going, not missing; no chips — the
  *           closing line ("you already said it") is the caption. Below the
  *           grid, the brand's mark is drawn at page scale: the caret falls
  *           from under the FRI column and lands on a five-beat timeline —
@@ -63,27 +64,61 @@ const BeatTick: React.FC = () => (
   />
 );
 
-/** The app's input bar. `text` empty renders the resting prompt (back cover). */
-const InputBar: React.FC<{ text?: string }> = ({ text }) => (
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 8,
-      padding: "14px 16px",
-      borderRadius: 10,
-      border: `1px solid ${COLORS.ON_DARK_HAIRLINE}`,
-      background: COLORS.GROUND_ELEVATED,
-      fontFamily: FONTS.MONO,
-      fontSize: 17,
-      color: COLORS.ON_DARK,
-    }}
-  >
-    <span style={{ color: COLORS.EMERALD_500 }}>&rsaquo;</span>
-    {text ? <span>{text}</span> : null}
-    <span style={{ color: COLORS.EMERALD_400 }}>&#9613;</span>
-  </div>
-);
+/**
+ * The app's input bar.
+ *
+ * `spent` is the back cover's state and it is not the same as empty. An empty
+ * box with a blinking caret reads as *before* anything was typed, which
+ * contradicts the task already sitting filed on the week below it — the page
+ * would be showing an effect with no cause. So the caret resets to the start
+ * and the sentence trails off behind it, dissolving left to right: the words
+ * are leaving, the task they became has stayed. It is the same dissolve the
+ * front cover uses between the sentence and its chips, run to completion.
+ */
+const InputBar: React.FC<{ text?: string; spent?: boolean }> = ({ text, spent }) => {
+  const fade =
+    "linear-gradient(to right, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.34) 34%," +
+    " rgba(0,0,0,0.12) 64%, rgba(0,0,0,0) 92%)";
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "14px 16px",
+        borderRadius: 10,
+        border: `1px solid ${COLORS.ON_DARK_HAIRLINE}`,
+        background: COLORS.GROUND_ELEVATED,
+        fontFamily: FONTS.MONO,
+        fontSize: 17,
+        color: COLORS.ON_DARK,
+        overflow: "hidden",
+      }}
+    >
+      <span style={{ color: COLORS.EMERALD_500 }}>&rsaquo;</span>
+      {spent ? (
+        <>
+          <span style={{ color: COLORS.EMERALD_400 }}>&#9613;</span>
+          <span
+            style={{
+              color: COLORS.ON_DARK,
+              whiteSpace: "nowrap",
+              WebkitMaskImage: fade,
+              maskImage: fade,
+            }}
+          >
+            {text}
+          </span>
+        </>
+      ) : (
+        <>
+          {text ? <span>{text}</span> : null}
+          <span style={{ color: COLORS.EMERALD_400 }}>&#9613;</span>
+        </>
+      )}
+    </div>
+  );
+};
 
 /** The MON–FRI week with one filed entry. */
 const WeekGrid: React.FC<{
@@ -270,8 +305,10 @@ export const WeekField: React.FC<WeekFieldProps> = ({ widthIn, heightIn, variant
           </div>
         </div>
       ) : (
-        /* Back: the residue. The prompt is empty — the sentence is gone —
-           and the task sits filed on the week. Below the grid the mark lands
+        /* Back: the residue. The caret has reset to the start and the sentence
+           is trailing off behind it, spent; the task it became sits filed on
+           the week. Showing the sentence leaving rather than simply absent is
+           what makes the filed task read as its consequence. Below the grid the mark lands
            at page scale, so the leaf composes to its bottom edge instead of
            trailing off: the caret drops from under FRI (where the task
            filed) onto a margin-to-margin timeline whose five beats sit on
@@ -288,7 +325,7 @@ export const WeekField: React.FC<WeekFieldProps> = ({ widthIn, heightIn, variant
               gap: 24,
             }}
           >
-            <InputBar />
+            <InputBar text={ex.text} spent />
             <WeekGrid ex={ex} heightIn={3.05} />
           </div>
           {/* The downbeat. The grid's bottom border lands at 5.70in (measured
