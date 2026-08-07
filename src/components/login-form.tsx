@@ -14,6 +14,12 @@ import {
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/label';
 
+// The shared public demo account — the same credentials the landing page
+// prints, published on purpose. GeneralSettings re-declares DEMO_EMAIL for
+// its own check; neither module exports it, so this form keeps its own copy.
+const DEMO_EMAIL = 'john@example.com';
+const DEMO_PASSWORD = 'password123';
+
 export function LoginForm({
   className,
   ...props
@@ -25,11 +31,13 @@ export function LoginForm({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const doLogin = async (loginEmail: string, loginPassword: string) => {
     setBusy(true);
     setError(null);
-    const res = await authAPI.login({ email, password });
+    const res = await authAPI.login({
+      email: loginEmail,
+      password: loginPassword,
+    });
     setBusy(false);
     if (!res.success || !res.data) {
       setError(res.message || 'Login failed');
@@ -37,6 +45,19 @@ export function LoginForm({
     }
     setJWTAuth(res.data.tokens, res.data.user);
     navigate('/');
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await doLogin(email, password);
+  };
+
+  const handleDemoLogin = async () => {
+    // Fill the visible form so the sign-in is watchable, then run the same
+    // login path the form submits through — the demo never bypasses auth.
+    setEmail(DEMO_EMAIL);
+    setPassword(DEMO_PASSWORD);
+    await doLogin(DEMO_EMAIL, DEMO_PASSWORD);
   };
 
   const handleGoogleLogin = () => {
@@ -106,7 +127,7 @@ export function LoginForm({
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full transition-colors duration-200 hover:bg-[oklch(0.96_0_0)] dark:hover:bg-[oklch(0.18_0.01_260)]"
+                  className="w-full transition-colors duration-200 hover:bg-[oklch(0.18_0.01_260)] hover:text-white"
                   onClick={handleGoogleLogin}
                 >
                   {/* Google G icon (SVG) */}
@@ -134,6 +155,27 @@ export function LoginForm({
                   </svg>
                   Login with Google
                 </Button>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={handleDemoLogin}
+                  aria-describedby="demo-account-note"
+                  className="w-full text-white/70 transition-colors duration-200 hover:bg-white/5 hover:text-white/90 dark:hover:bg-white/5"
+                >
+                  Sign in as the demo account
+                </Button>
+                <p
+                  id="demo-account-note"
+                  className="text-center font-mono text-xs leading-relaxed text-white/70"
+                >
+                  shared public account ·{' '}
+                  <span className="whitespace-nowrap">
+                    {DEMO_EMAIL} / {DEMO_PASSWORD}
+                  </span>
+                </p>
               </div>
             </div>
             <div className="mt-4 text-center text-sm">
