@@ -102,14 +102,26 @@ export default async function handler(
     // From here on every statement is scoped by RLS to the demo account.
     const result = await runWithRls(demoUserId, () =>
       withTransaction(async (client) => {
+        // `::text` is load-bearing. Without it pg parses an `interval` into an
+        // OBJECT, so the zero case arrives as `{}` — truthy, and never equal to
+        // '00:00:00'. The first authenticated run took the update branch on an
+        // already-current week and rewrote sixteen rows with a zero shift: no
+        // data harm, but a no-op that writes every six hours forever is not a
+        // no-op. As text, zero is '00:00:00' and a real shift is '21 days',
+        // which `$1::interval` accepts back unchanged.
         const delta = await client.query<{ delta: string | null }>(
-          `SELECT date_trunc('week', current_date::timestamp)
-                - date_trunc('week', min("start")) AS delta
+          `SELECT (date_trunc('week', current_date::timestamp)
+                 - date_trunc('week', min("start")))::text AS delta
              FROM public.events`
         );
         const shift = delta.rows[0]?.delta ?? null;
         if (!shift || shift === '00:00:00') {
-          return { shifted: shift, events: 0, tasks: 0, noop: true };
+          return {
+            shifted: shift ?? '00:00:00',
+            events: 0,
+            tasks: 0,
+            noop: true,
+          };
         }
 
         const events = await client.query(
