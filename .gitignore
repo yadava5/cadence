@@ -28,6 +28,7 @@ dist-ssr
 .cursorignore
 .mcp.json
 .claude/
+.serena/
 AGENTS.md
 tests.md
 
@@ -61,6 +62,14 @@ CLAUDE.md
 lib/**/*.js
 lib/**/*.map
 *.tsbuildinfo
+
+# Build-tool caches. Regenerated on demand; never committed.
+.turbo/
+.eslintcache
+.vite/
+
+# booklet/scripts/shoot.mjs screenshot output (SHOOT_OUT default)
+booklet/.shots/
 
 # Other
 screenshots/
