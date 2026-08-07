@@ -84,11 +84,12 @@ export default async function handler(
 
   try {
     // The demo user lookup is pre-tenant, the same shape login uses.
+    // `query` resolves to a pg QueryResult, not to the rows themselves.
     const users = await query<{ id: string }>(
       'SELECT id FROM public.users WHERE email = $1 LIMIT 1',
       [DEMO_EMAIL]
     );
-    const demoUserId = users[0]?.id;
+    const demoUserId = users.rows[0]?.id;
     if (!demoUserId) {
       res.status(500).json({
         success: false,
