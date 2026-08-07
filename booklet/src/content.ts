@@ -10,15 +10,19 @@
  *     ROUTES table (api/index.ts:55–92): 36 tuples = 34 product handlers
  *     plus a `health` and a `test` diagnostic (36 − 2 = 34). All 34 still
  *     bundle into one catch-all function, well under Vercel Hobby's
- *     12-function cap. Note: the app's own Welcome.tsx headline and the
- *     dispatcher docstring still say "32" — stale against the current
- *     table; we print the table's real count.
- *   · "1,145 tests" is the app-reported green figure (Welcome.tsx:219, 278).
- *     A static count of `it()/test()` calls across the tree is ~1,249
- *     (634 frontend + 615 backend/handler). We print the reported figure and
- *     note the static count, the same way the app states it.
- *   · Google Calendar sync is genuinely ONE-WAY: a read-only pull. The handler
- *     requests only the `calendar.readonly` scope (google/calendar.ts:25).
+ *     12-function cap.
+ *   · "1,185 tests" is a MEASURED figure, not a reported one: both vitest
+ *     projects were run and their summaries added — 635 (vitest.config.ts,
+ *     58 files) + 550 (vitest.backend.config.ts, 25 files) = 1,185, 0 skipped.
+ *     The app itself no longer publishes a precise number (Welcome.tsx now
+ *     says "1,000+ tests, green"), so re-running the two suites is the only
+ *     reproduction of this figure. Static `it()/test()` counting is NOT used
+ *     anywhere here — it never reproduced a runtime total.
+ *   · Google Calendar access is least-privilege but NOT read-only: the handler
+ *     requests `calendar.events` (google/calendar.ts:32), which grants read
+ *     AND write on events. Cadence pulls events in and can also create them
+ *     with attendees and Meet links (google/meeting.ts). We say so plainly —
+ *     understating a granted scope is the dangerous direction to be wrong in.
  *
  * The parse showcase examples are the app's OWN landing examples, verbatim
  * (Welcome.tsx:34–66) — real smart-input behavior, not a benchmark.
@@ -58,7 +62,7 @@ export const MASTHEAD = {
 export const ABSTRACT = {
   greeting: "Welcome.",
   body:
-    "Every calendar app hands you a form: title, date, start, end, priority, list. Cadence deletes the form. You type one plain sentence — “Lunch with Sam tomorrow 1pm” — and a three-stage parser reads the time, the priority, and the language, shows you its reading as chips, then files it as an event or a task on the week. Behind it: a React 19 app, one serverless dispatcher, a CA-pinned Postgres, and 1,145 tests.",
+    "Every calendar app hands you a form: title, date, start, end, priority, list. Cadence deletes the form. You type one plain sentence — “Lunch with Sam tomorrow 1pm” — and a three-stage parser reads the time, the priority, and the language, shows you its reading as chips, then files it as an event or a task on the week. Behind it: a React 19 app, one serverless dispatcher, a CA-pinned Postgres, and 1,185 tests.",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -71,6 +75,11 @@ export const COVER = {
   masthead: "Cadence · System Card",
   wordmark: "cadence",
   title: "Cadence",
+  // Two-tone title split — the cover tints the "ence" in emerald. Kept in
+  // content (not hardcoded in the template) so a rename can never strand an
+  // old brand string in the TSX.
+  titleHead: "Cad",
+  titleTail: "ence",
   marginNote: "you type · it reads · it files",
   days: ["MON", "TUE", "WED", "THU", "FRI"] as const,
   examples: [
@@ -125,7 +134,7 @@ export const TOC = {
     WHY: "the form is the friction",
     HOW: "chrono · compromise · priority",
     INSIDE: "one dispatcher, pinned TLS",
-    PROOF: "1,145 tests, and the receipts",
+    PROOF: "1,185 tests, and the receipts",
     BUILD: "the stack and the journey",
   } as Record<string, string>,
   chapterGlyphs: {
@@ -148,7 +157,7 @@ export const TOC = {
   atAGlance: [
     { key: "3 stages", val: "chrono · compromise · priority rules." },
     { key: "1 function", val: "34 handlers behind one Vercel dispatcher." },
-    { key: "1,145 tests", val: "green · strict headers · zero third-party." },
+    { key: "1,185 tests", val: "green · strict headers · zero third-party." },
   ],
   glossary: [
     { term: "chrono", def: "natural-language date/time parser." },
@@ -416,7 +425,7 @@ export const INSIDE = {
       { k: "ROUTING", v: "static wins over :param · req.query params" },
       { k: "SPA", v: "everything non-/api rewrites to index.html" },
     ],
-    source: "source · api/index.ts:1–132 · vercel.json (functions + rewrites)",
+    source: "source · api/index.ts:55–92 (ROUTES) · vercel.json (functions + rewrites)",
   },
 
   data: {
@@ -425,16 +434,18 @@ export const INSIDE = {
     lede:
       "The database is Supabase Postgres, reached over pure SQL with the pg pool. Two things are pinned: the TLS identity of the server, and the schema every connection resolves against.",
     body:
-      "The pool verifies the server against the inlined Supabase Root 2021 CA with rejectUnauthorized on — closing the MITM exposure of the old sslmode=no-verify. And because the pooler is co-tenanted with another app that connects as schema=lifequest, every connection is pinned to --search_path=public, so an unqualified “FROM tasks” can never resolve against the wrong tenant's schema.",
+      "The pool verifies the server against the inlined Supabase Root 2021 CA with rejectUnauthorized on — closing the MITM exposure of the old sslmode=no-verify. And because the pooler is co-tenanted with another app that connects as schema=lifequest, every connection is pinned to --search_path=public, so an unqualified “FROM tasks” can never resolve against the wrong tenant's schema. Since August 2026 the app connects as a NOBYPASSRLS role and every statement runs inside a transaction that binds app.user_id, so Postgres itself refuses cross-tenant rows — and refuses everything when the binding is absent. Tags, once global, are now owned per user.",
     facts: [
       { k: "ENGINE", v: "Supabase Postgres · pg pool · pure SQL" },
       { k: "TLS", v: "Supabase Root 2021 CA · rejectUnauthorized: true" },
       { k: "SCHEMA", v: "options: --search_path=public (pinned)" },
       { k: "RESILIENCE", v: "idle-error swallow · transient retry-once" },
+      { k: "ISOLATION", v: "RLS · FORCE on 7 tables · 22 policies" },
     ],
     honest:
       "The search_path pin is the fix for a real, intermittent 500: a pooled connection left on schema=lifequest was resolving Cadence's unqualified queries against the wrong schema.",
-    source: "source · lib/config/database.ts:13–20,66,72–74,122–150 · supabaseCA.ts",
+    source:
+      "source · lib/config/database.ts:13–20,66,72–74,122–150,186–213 · supabaseCA.ts · migrations/0002_enable_rls.sql",
   },
 
   auth: {
@@ -461,21 +472,22 @@ export const INSIDE = {
 // ---------------------------------------------------------------------------
 
 export const PROOF = {
-  divider: { subtitle: "1,145 tests, a live parse showcase, and a calendar that folds to fit" },
+  divider: { subtitle: "1,185 tests, a live parse showcase, and a calendar that folds to fit" },
 
   tests: {
     eyebrow: "§04 · THE NUMBER",
-    headline: "1,145 tests, green.",
-    hero: "1,145",
+    headline: "1,185 tests, green.",
+    hero: "1,185",
     heroLabel: "tests passing · frontend + backend",
     body:
-      "Correctness is not asserted, it is run. The app reports 1,145 passing tests across the parser, the API handlers, the services, and the React UI — with strict security headers and zero third-party network calls as standing invariants, not aspirations.",
-    exact: "1,145 reported green · static count of it()/test() ≈ 1,249 (634 frontend + 615 backend)",
+      "Correctness is not asserted, it is run. Both vitest projects were run to produce this figure — 1,185 passing tests across the parser, the API handlers, the services, and the React UI — with strict security headers and zero third-party network calls as standing invariants, not aspirations.",
+    exact: "1,185 green · 635 frontend + 550 backend · 0 skipped",
     ciValue: "0",
     ciLabel: "third-party calls — CSP connect-src 'self'",
     ciBody:
       "The Content-Security-Policy pins connect-src to 'self', so the running app cannot phone home: no analytics, no fonts-CDN, no external inference. The tests and the headers are the receipts the landing page prints.",
-    source: "source · Welcome.tsx:219,278 · vercel.json (CSP connect-src 'self')",
+    source:
+      "source · vitest.config.ts + vitest.backend.config.ts, measured 2026-08-06 · vercel.json (CSP connect-src 'self')",
   },
 
   parse: {
@@ -502,12 +514,12 @@ export const PROOF = {
     facts: [
       { k: "VIEWS", v: "month · week · day · agenda · recurrence" },
       { k: "MOBILE", v: "< 768px · week/month → listWeek agenda" },
-      { k: "SYNC", v: "Google Calendar · one-way pull · read-only" },
-      { k: "SCOPE", v: "calendar.readonly — it can only read" },
+      { k: "SYNC", v: "Google Calendar · pull sync + event write-back" },
+      { k: "SCOPE", v: "calendar.events — events only, no calendar mgmt" },
     ],
     honest:
-      "Google sync is intentionally one-way: the handler requests only the calendar.readonly scope, so Cadence imports your events and never writes back.",
-    source: "source · CalendarView.tsx:96–107 · google/calendar.ts:2,25",
+      "Google access is least-privilege but not read-only: Cadence requests calendar.events, which grants read and write on your events. It pulls −30d…+90d into a per-user “Google” calendar and can create events with attendees and Meet links (sendUpdates=all). It has no full-calendar-management and no Gmail scope.",
+    source: "source · CalendarView.tsx:109–126 · google/calendar.ts:32 · GoogleOAuthService.ts:210",
   },
 
   security: {
@@ -579,22 +591,23 @@ export const BUILD = {
   },
 
   // Page 27 — the TRY-IT page: this is where the reader is sent to the live
-  // product. The QR, the live URL, the demo account, the send-off.
+  // product. The QR, the live URL, the sign-up link, the send-off. There is no
+  // demo account and no registration seeding, so neither is promised here.
   closing: {
     eyebrow: "§05 · TRY IT · THE LIVE APP",
     headline: "Type it.",
     tagline: "Run a real sentence through all three stages and watch it land on the week — in your browser.",
     liveLabel: "LIVE WEB APP",
     liveUrl: "usecadenceapp.vercel.app",
-    spaceLabel: "DEMO ACCOUNT",
-    spaceUrl: "usecadenceapp.vercel.app/login",
+    spaceLabel: "CREATE AN ACCOUNT",
+    spaceUrl: "usecadenceapp.vercel.app/register",
     leftArrowLabel: "open it",
-    rightArrowLabel: "sign in, seeded",
+    rightArrowLabel: "sign up, free",
     microNote: "one sentence · three stages · zero forms",
     qrTarget: "https://usecadenceapp.vercel.app",
     qrCaption: "scan to open the live app",
     alsoNote:
-      "No install — it runs in your browser. The demo account is seeded with a real week, so the calendar is not empty when you land.",
+      "No install — it runs in your browser. A new account starts empty on purpose: type the first sentence and watch it land on the week.",
   },
 } as const;
 

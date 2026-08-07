@@ -121,7 +121,7 @@ export const PAGES: readonly PageSpec[] = [
   {
     num: 18, kind: "divider", parity: "verso", sectionKey: "04_PROOF",
     chapterNum: "04", chapterTitle: "PROOF",
-    subtitle: "1,145 tests, a live parse showcase, and a calendar that folds to fit",
+    subtitle: "1,185 tests, a live parse showcase, and a calendar that folds to fit",
     artSlot: "/art/div-04-proof.svg",
     chapterIndex: 4, chapterTotal: 5,
   },

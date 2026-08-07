@@ -216,28 +216,28 @@ export const ProofTestsPage: React.FC<PageProps> = (p) => {
         </div>
       </div>
 
-      {/* where the tests live — the static it()/test() split, front vs back */}
+      {/* where the tests live — the measured runtime split, front vs back */}
       <div style={{ marginTop: 20 }}>
         <FigureCard
           label="where the tests live"
-          source="static it()/test() count"
-          caption="The app reports 1,145 green; a static count of it()/test() calls is ≈1,249 — roughly even across the React frontend and the API/handler backend. We print the app's reported figure and show the split."
+          source="measured vitest run"
+          caption="Both suites were run and their summaries added: vitest.config.ts reports 635 tests across 58 files, vitest.backend.config.ts 550 across 25, none skipped. Re-run the two configs and the split reproduces exactly."
         >
           <Donut
             segments={[
               {
-                value: 634,
+                value: 635,
                 color: COLORS.EMERALD_400,
                 label: 'frontend · React UI',
               },
               {
-                value: 615,
+                value: 550,
                 color: COLORS.EMERALD_700,
                 label: 'backend · handlers',
               },
             ]}
-            centerValue="1,249"
-            centerSub="STATIC COUNT"
+            centerValue="1,185"
+            centerSub="MEASURED"
           />
         </FigureCard>
       </div>
@@ -823,7 +823,7 @@ export const ProofAdaptPage: React.FC<PageProps> = (p) => {
       <div style={{ marginTop: 20 }}>
         <FigureCard
           label="the fold · one threshold"
-          source="CalendarView.tsx:96–107"
+          source="CalendarView.tsx:109–126"
           caption="One breakpoint decides the layout: at 768px and up, the seven-column week grid; below it, FullCalendar's listWeek agenda. Same events, recomposed for the device."
         >
           <BreakpointThreshold />

@@ -1,7 +1,7 @@
 /**
  * /api/google/calendar — Google Calendar connect + one-way pull sync.
  *
- * GET  → { authUrl } for an incremental calendar.readonly consent
+ * GET  → { authUrl } for an incremental calendar.events consent
  *        (offline access, state="calendar"; ?redirectUri= from the SPA).
  * POST → with { code, redirectUri }: finishes the connect grant for the
  *        signed-in user (stores the refresh token server-side).

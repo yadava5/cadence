@@ -1,12 +1,17 @@
 # RLS cutover — Cadence
 
-Status on 2026-08-03: **steps 1–3 applied and verified. The final switch (step 4)
-is the `DATABASE_URL` change and is the owner's to make.**
+Status on 2026-08-03: **DONE — steps 1–4 all applied and verified.** The
+`DATABASE_URL` switch was made on 2026-08-03; production now connects as
+`cadence_app` (`NOSUPERUSER NOBYPASSRLS`), so the policies are load-bearing
+rather than inert.
 
-Today the app connects as `postgres`, which carries `BYPASSRLS`. RLS is enabled,
-forced and correct — and completely inert for the application, because a
-bypassing role never consults a policy. Step 4 is the entire point of the
-exercise: it is what makes the policies load-bearing.
+Until that switch the app connected as `postgres`, which carries `BYPASSRLS`:
+RLS was enabled, forced and correct, and completely inert for the application,
+because a bypassing role never consults a policy. Step 4 is what changed that.
+
+The previous connection string is saved for rollback at
+`~/cadence-DATABASE_URL-rollback.txt` (owner-only, outside the repo — it
+contains a live credential and must never be committed).
 
 ## What is already done
 
@@ -16,6 +21,7 @@ exercise: it is what makes the policies load-bearing.
 | 2    | `0001a` — `tags.userId`, backfill, per-user unique, FK        | 15 rows, 7 names, 0 unowned, all `task_tags` resolve |
 | 3    | `0002` — `ENABLE` + `FORCE` RLS, 22 policies, 7 tables        | `pg_class.relrowsecurity AND relforcerowsecurity`    |
 | 3b   | `cadence_app` role, `NOSUPERUSER NOBYPASSRLS`, granted        | see the proof below                                  |
+| 4    | `DATABASE_URL` switched to `cadence_app` (2026-08-03)         | rollback string saved 2026-08-03; role proof above   |
 
 `users` and `user_profiles` are deliberately NOT RLS'd: they are read before a
 user is authenticated, so a policy keyed on `app.user_id` would deadlock login.
@@ -53,9 +59,11 @@ lists in production rather than errors**:
   connection. Had the GUC been set on the pool instead, every read would return
   zero rows.
 
-## Step 4 — the switch (owner)
+## Step 4 — the switch (owner) · APPLIED 2026-08-03
 
-The role currently has a placeholder password. Rotate it first.
+Kept as the record of what was run, and as the rollback recipe.
+
+The role shipped with a placeholder password, so it was rotated first.
 
 ```sql
 ALTER ROLE cadence_app WITH PASSWORD 'a-long-random-password-you-generate';

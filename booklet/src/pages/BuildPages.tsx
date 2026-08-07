@@ -351,7 +351,7 @@ export const BuildClosingPage: React.FC<PageProps> = (p) => {
           </div>
         </div>
 
-        {/* right column — the two entry points + the seeded note */}
+        {/* right column — the two entry points + the no-install note */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <ClosingCard
             label={c.liveLabel}

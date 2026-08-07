@@ -316,15 +316,17 @@ cache.invalidatePattern('tasks:*');
 
 ## Testing
 
-Cadence ships with a broad automated test suite — **92 test files** spanning the frontend, backend, and shared packages, plus 13 Playwright specs under `e2e/`. The suite runs **1,179 tests: 635 frontend and 544 backend, with 0 skipped.**
+Cadence ships with a broad automated test suite. The two Vitest projects run **83 test files — 58 frontend (`vitest.config.ts`) and 25 backend (`vitest.backend.config.ts`) — for 1,185 tests: 635 frontend and 550 backend, with 0 skipped.** Those are the figures the two root configs actually execute, taken from their run summaries. The tree holds 93 `*.test.ts(x)` files on disk; the other 10 live in `packages/backend` and `packages/shared`, which the root configs do not glob — they run under their own workspace-level Vitest configs (`npm test`, which fans out across workspaces). The 13 Playwright specs under `e2e/` run separately again. So 1,185 is the two-root-config total, not a whole-repo total.
 
 The 11 that used to be skipped are the Postgres row-level-security module. They needed a live database from an environment variable that no workflow set, so they had never executed — anywhere, once. They now start their own `postgres:16` via testcontainers when `RLS_TEST_PG_ADMIN_URL` is absent, which means the isolation policies are _demonstrated_ rather than merely written. CI additionally asserts that the suite ran and that nothing was skipped, because a skipped security test and a passing one produce the same green tick.
+
+Those policies are not a test fixture. RLS is **live in production**: `0002_enable_rls.sql` applies `ENABLE` + `FORCE ROW LEVEL SECURITY` and 22 policies across the 7 tenant tables, and since 2026-08-03 the deployed app connects as `cadence_app`, a `NOSUPERUSER NOBYPASSRLS` role (`0003_create_cadence_app_role.sql`). Every statement runs inside a transaction that binds `app.user_id` (`lib/config/database.ts`), so Postgres refuses cross-tenant rows — and refuses everything when the binding is absent. `users` and `user_profiles` are deliberately excluded, because they are read before a user is authenticated. See `docs/RLS-CUTOVER.md`.
 
 Coverage, measured rather than asserted:
 
 | Suite    | Tests |      Line | Branch |
 | -------- | ----: | --------: | -----: |
-| Backend  |   544 | **67.1%** |  75.7% |
+| Backend  |   550 | **67.7%** |  76.3% |
 | Frontend |   635 |     18.0% |  67.1% |
 
 The frontend line figure is low and is not a gap to close with component unit tests. That surface is exercised by the Playwright suite, which a v8 coverage pass over a Vitest run cannot observe — 18% lines against 67% branches is the signature of exactly that. No line-coverage gate is set on it, because such a gate pushes effort toward shallow tests that raise the number and find nothing.
