@@ -141,7 +141,8 @@ export const CoverPage: React.FC = () => (
           color: COLORS.ON_DARK,
         }}
       >
-        Cad<span style={{ color: COLORS.EMERALD_400 }}>ence</span>
+        {COVER.titleHead}
+        <span style={{ color: COLORS.EMERALD_400 }}>{COVER.titleTail}</span>
       </div>
       <div
         style={{
