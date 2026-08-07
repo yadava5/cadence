@@ -2,14 +2,19 @@ import React from "react";
 import { COLORS, FONTS, PAGE } from "../theme";
 import { BACK_COVER } from "../content";
 import { WeekField } from "../visuals/WeekField";
+import { CadenceMark } from "../visuals/Mark";
 
 /**
- * Back cover (page 28) — a PURE CLOSING that bookends the front cover. It reuses
- * the cover's full-bleed week field (variant "back" = the second example, a
- * task → FRI) so front and back read as one wraparound, then closes quietly: a
- * colophon upper-left, a wordmark + one closing line lower-left, a vertical
- * margin note. No QR, no live URL, no CTA — the Try-It page (27) sends the
- * reader to the product; this page just closes the book.
+ * Back cover (page 28) — a PURE CLOSING that ANSWERS the front cover rather
+ * than repeating it. The field is the RESIDUE of the cover's motif (variant
+ * "back"): an empty prompt with a resting caret and the second example's task
+ * already filed on FRI — the sentence is gone, which is exactly what the
+ * closing line says. Below the grid the field draws the brand's downbeat at
+ * page scale (see WeekField), so the leaf reads composed to its bottom edge:
+ * prompt → week → caret falling onto the timeline → closing line. The app's
+ * mark also stands over the colophon upper-left as the printer's device.
+ * No QR, no live URL, no CTA — the Try-It page (27) sends the reader to the
+ * product; this page just closes the book.
  */
 export const BackCoverPage: React.FC = () => (
   <section
@@ -24,27 +29,38 @@ export const BackCoverPage: React.FC = () => (
   >
     <WeekField widthIn={8.75} heightIn={11.25} variant="back" />
 
-    {/* Colophon — upper-left (mirrors the cover masthead) */}
+    {/* Colophon — upper-left (mirrors the cover masthead), the mark standing
+        over it as the printer's device */}
     <div
       style={{
         position: "absolute",
-        top: "0.7in",
+        top: "0.66in",
         left: "0.7in",
-        fontFamily: FONTS.MONO,
-        fontSize: 9,
-        fontWeight: 600,
-        letterSpacing: "0.16em",
-        textTransform: "uppercase",
-        color: COLORS.ON_DARK_MUTED,
-        lineHeight: 1.7,
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        alignItems: "flex-start",
       }}
     >
-      {BACK_COVER.colophon.map((line, i) => (
-        <React.Fragment key={i}>
-          {line}
-          <br />
-        </React.Fragment>
-      ))}
+      <CadenceMark height={24} />
+      <div
+        style={{
+          fontFamily: FONTS.MONO,
+          fontSize: 9,
+          fontWeight: 600,
+          letterSpacing: "0.16em",
+          textTransform: "uppercase",
+          color: COLORS.ON_DARK_MUTED,
+          lineHeight: 1.7,
+        }}
+      >
+        {BACK_COVER.colophon.map((line, i) => (
+          <React.Fragment key={i}>
+            {line}
+            <br />
+          </React.Fragment>
+        ))}
+      </div>
     </div>
 
     {/* fin marker — top-right, mirrors the cover's beats pill position */}
@@ -71,7 +87,8 @@ export const BackCoverPage: React.FC = () => (
       {BACK_COVER.fin}
     </div>
 
-    {/* Vertical margin callout — right edge (mirrors the cover) */}
+    {/* Vertical margin callout — right edge (mirrors the cover). MUTED, not
+        SUBTLE: measured APCA Lc -24 for SUBTLE on this ground vs -54. */}
     <div
       style={{
         position: "absolute",
@@ -83,7 +100,7 @@ export const BackCoverPage: React.FC = () => (
         fontWeight: 500,
         letterSpacing: "0.22em",
         textTransform: "uppercase",
-        color: COLORS.ON_DARK_SUBTLE,
+        color: COLORS.ON_DARK_MUTED,
       }}
     >
       {BACK_COVER.marginNote}
@@ -127,11 +144,11 @@ export const BackCoverPage: React.FC = () => (
         style={{
           fontFamily: FONTS.SERIF,
           fontStyle: "italic",
-          fontSize: 40,
-          lineHeight: 1.05,
+          fontSize: 46,
+          lineHeight: 1.08,
           letterSpacing: "-0.01em",
           color: COLORS.ON_DARK,
-          maxWidth: "5.6in",
+          maxWidth: "6.2in",
         }}
       >
         {BACK_COVER.closingLine}
@@ -147,7 +164,7 @@ export const BackCoverPage: React.FC = () => (
           fontWeight: 500,
           letterSpacing: "0.16em",
           textTransform: "uppercase",
-          color: COLORS.ON_DARK_SUBTLE,
+          color: COLORS.ON_DARK_MUTED,
         }}
       >
         <span style={{ width: 28, height: 1, background: COLORS.ON_DARK_HAIRLINE }} />

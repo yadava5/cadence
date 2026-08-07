@@ -2,13 +2,16 @@ import React from "react";
 import { COLORS, FONTS, PAGE } from "../theme";
 import { BRAND, COVER, MASTHEAD } from "../content";
 import { WeekField } from "../visuals/WeekField";
+import { CadenceMark } from "../visuals/Mark";
 
 /**
  * Front cover (page 01). A full-bleed near-black field carrying the app's own
  * story — a plain sentence resolving into typed chips that land on a MON–FRI
  * week (WeekField) — with a title block lower-left over a scrim and a vertical
  * mono margin callout. The one accent is emerald; the wordmark is the app's
- * `cadence`, closed by the emerald caret that is the brand's downbeat.
+ * `cadence`, closed by the emerald caret that is the brand's downbeat. The
+ * app's mark (caret-on-timeline, inlined in visuals/Mark.tsx) leads the
+ * masthead as a publisher's device.
  */
 export const CoverPage: React.FC = () => (
   <section
@@ -23,12 +26,15 @@ export const CoverPage: React.FC = () => (
   >
     <WeekField widthIn={8.75} heightIn={11.25} variant="front" />
 
-    {/* Masthead — top-left */}
+    {/* Masthead — top-left, led by the app's mark as a publisher's device */}
     <div
       style={{
         position: "absolute",
-        top: "0.7in",
+        top: "0.66in",
         left: "0.7in",
+        display: "flex",
+        alignItems: "center",
+        gap: 11,
         fontFamily: FONTS.MONO,
         fontSize: 9,
         fontWeight: 600,
@@ -37,7 +43,8 @@ export const CoverPage: React.FC = () => (
         color: COLORS.ON_DARK_MUTED,
       }}
     >
-      {COVER.masthead}
+      <CadenceMark height={21} />
+      <span>{COVER.masthead}</span>
     </div>
 
     {/* Beats pill — top-right, seeds the "three beats" idea up front. */}
@@ -77,7 +84,8 @@ export const CoverPage: React.FC = () => (
       ))}
     </div>
 
-    {/* Vertical margin callout — right edge */}
+    {/* Vertical margin callout — right edge. MUTED, not SUBTLE: measured
+        APCA Lc -24 for SUBTLE on this ground vs -54 for MUTED. */}
     <div
       style={{
         position: "absolute",
@@ -89,7 +97,7 @@ export const CoverPage: React.FC = () => (
         fontWeight: 500,
         letterSpacing: "0.22em",
         textTransform: "uppercase",
-        color: COLORS.ON_DARK_SUBTLE,
+        color: COLORS.ON_DARK_MUTED,
       }}
     >
       calendar &amp; tasks, in plain English
@@ -134,7 +142,7 @@ export const CoverPage: React.FC = () => (
       <div
         style={{
           fontFamily: FONTS.SANS,
-          fontSize: 80,
+          fontSize: 96,
           fontWeight: 700,
           letterSpacing: "-0.035em",
           lineHeight: 0.92,
@@ -148,10 +156,10 @@ export const CoverPage: React.FC = () => (
         style={{
           fontFamily: FONTS.SERIF,
           fontStyle: "italic",
-          fontSize: 23,
+          fontSize: 24,
           lineHeight: 1.22,
           color: COLORS.ON_DARK_MUTED,
-          maxWidth: "5.4in",
+          maxWidth: "6.2in",
         }}
       >
         {BRAND.subtitle}
@@ -174,7 +182,7 @@ export const CoverPage: React.FC = () => (
           {BRAND.author} · {BRAND.year}
         </span>
         <span style={{ width: 28, height: 1, background: COLORS.ON_DARK_HAIRLINE }} />
-        <span style={{ color: COLORS.ON_DARK_SUBTLE }}>{MASTHEAD.volume}</span>
+        <span style={{ color: COLORS.ON_DARK_MUTED }}>{MASTHEAD.volume}</span>
       </div>
     </div>
   </section>
