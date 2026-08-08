@@ -1,5 +1,5 @@
 # Dependabot keeps the two ecosystems this repository actually resolves at
-# build time under weekly review.
+# build time under monthly review.
 #
 # ## Why there is a single npm entry at the root
 #
@@ -24,15 +24,17 @@
 # Ungrouped minor/patch bumps across ~120 direct dependencies produce more PRs
 # than a solo maintainer can review, and unreviewed dependency PRs are how a
 # supply-chain change lands unnoticed. Minor and patch updates are batched into
-# one PR per ecosystem per week; majors stay separate because they are the ones
+# one PR per ecosystem per month; majors stay separate because they are the ones
 # that need a human reading the changelog.
 version: 2
 updates:
+  # Monthly, not weekly: `schedule` governs Dependabot's VERSION updates only.
+  # Security updates are a separate mechanism, unaffected by this interval, so
+  # vulnerability patches still arrive immediately regardless of the cadence.
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
       time: '06:00'
       timezone: America/New_York
     open-pull-requests-limit: 5
@@ -54,8 +56,7 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
       time: '06:00'
       timezone: America/New_York
     open-pull-requests-limit: 5
@@ -63,6 +64,17 @@ updates:
       prefix: ci
       include: scope
     groups:
+      # codeql-action/{init,autobuild,analyze,upload-sarif} are sub-actions of a
+      # single action and must move in lockstep. Dependabot treats them as four
+      # separate dependencies and would otherwise bump one SHA while leaving the
+      # rest behind, mismatching the workflow and hard-failing CodeQL:
+      #   ##[error]Loaded a configuration file for version '4.36.2', but running version '4.37.6'
+      # No update-types key on purpose: ALL updates (majors included) for these
+      # sub-actions must ship together and never be separable. Listed before the
+      # catch-all below because Dependabot assigns a dep to the first matching
+      # group in file order.
+      codeql-action:
+        patterns: ["github/codeql-action*"]
       github-actions:
         applies-to: version-updates
         update-types:
