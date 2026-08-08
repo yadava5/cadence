@@ -19,14 +19,22 @@ export type TagType =
   | 'PROJECT';
 
 /**
- * Tag entity interface extending base
+ * `tags` is the one entity in this service layer with NO timestamps, so it
+ * cannot take BaseEntity whole. Omitting them here is not a preference — the
+ * columns do not exist, and three independent sources agree: the Prisma model
+ * (`model Tag` = id, name, type, color, userId), the production table, and the
+ * integration fixture schema (`lib/__tests__/fixtures/schema.sql:110`).
+ *
+ * This interface used to re-declare `createdAt`/`updatedAt` on top of the ones
+ * BaseEntity already requires, and the SELECT below asked Postgres for them.
+ * The result was a 500 on GET /api/tags for every user, in production, from
+ * the day the service was written — while 28 unit tests passed, because their
+ * fixtures are hand-built objects that never reach SQL.
  */
-export interface TagEntity extends BaseEntity {
+export interface TagEntity extends Omit<BaseEntity, 'createdAt' | 'updatedAt'> {
   name: string;
   type: TagType;
   color: string | null;
-  createdAt: Date;
-  updatedAt: Date;
   usageCount?: number;
 
   // Relations (optional for different query contexts)
@@ -289,7 +297,7 @@ export class TagService extends BaseService<
         ? `WHERE ${whereClauses.join(' AND ')}`
         : '';
       const res = await query<TagEntity>(
-        `SELECT t.id, t.name, t.type, t.color, t."createdAt", t."updatedAt"${usageSelect}
+        `SELECT t.id, t.name, t.type, t.color${usageSelect}
          FROM tags t
          ${usageJoin}
          ${whereSql}
@@ -715,8 +723,6 @@ export class TagService extends BaseService<
         name: string;
         type: TagType;
         color: string | null;
-        createdAt: Date;
-        updatedAt: Date;
         value: string;
         displayText: string;
         iconName: string;
@@ -736,8 +742,6 @@ export class TagService extends BaseService<
           name: row.name,
           type: row.type,
           color: row.color,
-          createdAt: row.createdAt,
-          updatedAt: row.updatedAt,
         }),
         value: row.value,
         displayText: row.displayText,

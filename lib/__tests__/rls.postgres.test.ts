@@ -321,6 +321,39 @@ describe.skipIf(!ADMIN_URL)('RLS enforcement (real Postgres)', () => {
     expect(aCount.rows[0].c).toBe(1);
   });
 
+  /**
+   * THE SERVICE'S OWN QUERY, against the real table.
+   *
+   * GET /api/tags returned 500 in production for every user, from the day the
+   * service was written, because TagService selected t."createdAt" and
+   * t."updatedAt" from a `tags` table that has neither column. Nothing caught
+   * it: TagService's 28 unit tests build their fixtures as hand-written
+   * objects and never reach Postgres, so they passed against a schema that
+   * does not exist, and this file — which DOES have the real schema — only
+   * ever asked `tags` hand-written questions of its own.
+   *
+   * So the guard is to run the service, not a query resembling it. If a column
+   * is ever selected that the fixture schema (and therefore production) lacks,
+   * this fails here instead of in a user's browser.
+   */
+  it('TagService.findAll runs against the real schema — no phantom columns', async () => {
+    const { TagService } = await import('../services/TagService.js');
+    const svc = new TagService();
+
+    const rows = await runWithRls(USER_A, () =>
+      svc.findAll({}, { userId: USER_A })
+    );
+    expect(rows.map((r) => r.id)).toEqual(['tag_a']);
+    expect(rows[0].name).toBe('urgent');
+
+    // The usage-count branch builds a different SELECT list; exercise it too,
+    // because a phantom column there would be just as invisible.
+    const withCounts = await runWithRls(USER_A, () =>
+      svc.findAll({ withUsageCount: true }, { userId: USER_A })
+    );
+    expect(withCounts.map((r) => r.id)).toEqual(['tag_a']);
+  });
+
   // --------------------------------------------------------------------------
   // Pooling safety: the tx-local GUC never leaks across users on a reused pool.
   // --------------------------------------------------------------------------
