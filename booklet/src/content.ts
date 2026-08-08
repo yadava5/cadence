@@ -11,9 +11,16 @@
  *     plus a `health` and a `test` diagnostic (36 − 2 = 34). All 34 still
  *     bundle into one catch-all function, well under Vercel Hobby's
  *     12-function cap.
- *   · "1,185 tests" is a MEASURED figure, not a reported one: both vitest
+ *   · "1,186 tests" is a MEASURED figure, not a reported one: both vitest
  *     projects were run and their summaries added — 635 (vitest.config.ts,
- *     58 files) + 550 (vitest.backend.config.ts, 25 files) = 1,185, 0 skipped.
+ *     58 files) + 551 (vitest.backend.config.ts, 25 files) = 1,186, 0 skipped.
+ *     It was 1,185 until 2026-08-08. The +1 is the regression test for
+ *     GET /api/tags, which had answered 500 for every user since the commit
+ *     that added TagService: the query selected two columns `tags` never
+ *     had. Its 28 unit tests passed throughout — and still pass with the bug
+ *     reinstated — because their fixtures never reach Postgres, so the new
+ *     test runs the service against the REAL schema in a real postgres:16.
+ *     Re-measured at cadence abaaea8, CI run 31233308044, all five jobs green.
  *     The app itself no longer publishes a precise number (Welcome.tsx now
  *     says "1,000+ tests, green"), so re-running the two suites is the only
  *     reproduction of this figure. Static `it()/test()` counting is NOT used
@@ -62,7 +69,7 @@ export const MASTHEAD = {
 export const ABSTRACT = {
   greeting: "Welcome.",
   body:
-    "Every calendar app hands you a form: title, date, start, end, priority, list. Cadence deletes the form. You type one plain sentence — “Lunch with Sam tomorrow 1pm” — and a three-stage parser reads the time, the priority, and the language, shows you its reading as chips, then files it as an event or a task on the week. Behind it: a React 19 app, one serverless dispatcher, a CA-pinned Postgres, and 1,185 tests.",
+    "Every calendar app hands you a form: title, date, start, end, priority, list. Cadence deletes the form. You type one plain sentence — “Lunch with Sam tomorrow 1pm” — and a three-stage parser reads the time, the priority, and the language, shows you its reading as chips, then files it as an event or a task on the week. Behind it: a React 19 app, one serverless dispatcher, a CA-pinned Postgres, and 1,186 tests.",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -134,7 +141,7 @@ export const TOC = {
     WHY: "the form is the friction",
     HOW: "chrono · compromise · priority",
     INSIDE: "one dispatcher, pinned TLS",
-    PROOF: "1,185 tests, and the receipts",
+    PROOF: "1,186 tests, and the receipts",
     BUILD: "the stack and the journey",
   } as Record<string, string>,
   chapterGlyphs: {
@@ -157,7 +164,7 @@ export const TOC = {
   atAGlance: [
     { key: "3 stages", val: "chrono · compromise · priority rules." },
     { key: "1 function", val: "34 handlers behind one Vercel dispatcher." },
-    { key: "1,185 tests", val: "green · strict headers · zero third-party." },
+    { key: "1,186 tests", val: "green · strict headers · zero third-party." },
   ],
   glossary: [
     { term: "chrono", def: "natural-language date/time parser." },
@@ -472,16 +479,16 @@ export const INSIDE = {
 // ---------------------------------------------------------------------------
 
 export const PROOF = {
-  divider: { subtitle: "1,185 tests, a live parse showcase, and a calendar that folds to fit" },
+  divider: { subtitle: "1,186 tests, a live parse showcase, and a calendar that folds to fit" },
 
   tests: {
     eyebrow: "§04 · THE NUMBER",
-    headline: "1,185 tests, green.",
-    hero: "1,185",
+    headline: "1,186 tests, green.",
+    hero: "1,186",
     heroLabel: "tests passing · frontend + backend",
     body:
-      "Correctness is not asserted, it is run. Both vitest projects were run to produce this figure — 1,185 passing tests across the parser, the API handlers, the services, and the React UI — with strict security headers and zero third-party network calls as standing invariants, not aspirations.",
-    exact: "1,185 green · 635 frontend + 550 backend · 0 skipped",
+      "Correctness is not asserted, it is run. Both vitest projects were run to produce this figure — 1,186 passing tests across the parser, the API handlers, the services, and the React UI — with strict security headers and zero third-party network calls as standing invariants, not aspirations.",
+    exact: "1,186 green · 635 frontend + 551 backend · 0 skipped",
     ciValue: "0",
     ciLabel: "third-party calls — CSP connect-src 'self'",
     ciBody:

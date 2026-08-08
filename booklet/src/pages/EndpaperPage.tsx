@@ -106,7 +106,7 @@ export const EndpaperPage: React.FC<{
       >
         <Fact value="3" unit="stages" note="chrono · priority · compromise" />
         <Fact value="34" unit="handlers" note="one Vercel dispatcher" first={false} />
-        <Fact value="1,185" unit="tests" note="green · zero third-party" first={false} />
+        <Fact value="1,186" unit="tests" note="green · zero third-party" first={false} />
       </div>
 
       {/* Kicker */}

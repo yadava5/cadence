@@ -4,7 +4,7 @@ import { SceneFrame, IsoSolid, makeProject } from "./primitives";
 
 /**
  * PROOF — the receipt. An isometric test report slab: rows of ticks on its
- * face, with the running count "1,185" stamped in emerald at the foot. The
+ * face, with the running count "1,186" stamped in emerald at the foot. The
  * ticks are the single accent — every row green, nothing pending.
  */
 
@@ -48,7 +48,7 @@ export const ProofReceipt: React.FC = () => {
             <>
               <rect x={stamp.sx - 38} y={stamp.sy - 2} width={76} height={24} rx={5} fill="currentColor" fillOpacity={0.13} stroke="currentColor" strokeWidth={1.2} />
               <text x={stamp.sx} y={stamp.sy + 12} textAnchor="middle" fontFamily="ui-monospace, monospace" fontSize={14} fontWeight={700} letterSpacing="-0.02em" fill="currentColor">
-                1,185
+                1,186
               </text>
               <text x={stamp.sx} y={stamp.sy + 19.5} textAnchor="middle" fontFamily="ui-monospace, monospace" fontSize={4.2} letterSpacing="1.4" fill="currentColor" opacity={0.9}>
                 TESTS · GREEN
