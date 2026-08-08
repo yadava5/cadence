@@ -74,7 +74,7 @@ updates:
       # catch-all below because Dependabot assigns a dep to the first matching
       # group in file order.
       codeql-action:
-        patterns: ["github/codeql-action*"]
+        patterns: ['github/codeql-action*']
       github-actions:
         applies-to: version-updates
         update-types:
