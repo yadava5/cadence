@@ -1,6 +1,7 @@
 name: CI
 
 # Validates what actually ships for this codebase:
+#   - readme-facts : every number the README asserts, checked against the code
 #   - lint      : ESLint + Prettier over the app / api / server-handlers
 #   - typecheck : tsc --noEmit over the frontend app (vite build does NOT typecheck)
 #   - tests     : frontend + backend unit/integration suites
@@ -19,6 +20,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The README's numbers drifted for months because nothing could notice. This
+  # job is why they now can't: it recomputes every countable claim from source
+  # and fails on a mismatch — or on a claim that has been reworded out of range
+  # of its own check, which is the way the last set went stale unseen.
+  # Deliberately dependency-free (node builtins only), so it is the fastest job
+  # here and has no reason to be skipped or disabled.
+  readme-facts:
+    name: README facts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      - name: Check every number the README asserts
+        run: node scripts/readme-facts.mjs --check
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

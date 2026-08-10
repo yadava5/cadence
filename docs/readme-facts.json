@@ -1,0 +1,52 @@
+{
+  "$comment": "Recorded facts for README.md — figures that require executing something. Regenerate with `node scripts/readme-facts.mjs --record`, then apply with `--write`. Do not hand-edit: the point of this file is that these numbers have a command behind them.",
+  "recordedAt": "2026-08-10",
+  "machine": "darwin-arm64, node v24.9.0",
+  "facts": {
+    "testFilesFrontend": {
+      "value": 58,
+      "command": "npx vitest run --config vitest.config.ts"
+    },
+    "testsFrontend": {
+      "value": 635,
+      "command": "npx vitest run --config vitest.config.ts"
+    },
+    "testFilesBackend": {
+      "value": 25,
+      "command": "npx vitest run --config vitest.backend.config.ts"
+    },
+    "testsBackend": {
+      "value": 551,
+      "command": "npx vitest run --config vitest.backend.config.ts"
+    },
+    "testsTotal": {
+      "value": 1186,
+      "command": "the sum of the two runs above"
+    },
+    "testsSkipped": {
+      "value": 0,
+      "command": "the \"N skipped\" segment of both Vitest summary lines"
+    },
+    "coverageBackendLines": {
+      "value": 67.89,
+      "command": "npm run test:backend:coverage"
+    },
+    "coverageBackendBranches": {
+      "value": 76.27,
+      "command": "npm run test:backend:coverage"
+    }
+  },
+  "suiteOutcome": {
+    "frontend": {
+      "passed": 635,
+      "failed": 0,
+      "skipped": 0
+    },
+    "backend": {
+      "passed": 551,
+      "failed": 0,
+      "skipped": 0
+    },
+    "allGreen": true
+  }
+}

@@ -3,7 +3,7 @@
  *
  * Vercel's Hobby tier caps deployments at 12 serverless functions; the
  * per-file handlers under ../server-handlers (formerly api/*) numbered
- * 36. This dispatcher keeps every handler byte-for-byte intact and
+ * 37. This dispatcher keeps every handler byte-for-byte intact and
  * routes to it by path, restoring the dynamic-segment params that
  * Vercel's filesystem router would have injected (req.query.id).
  */
