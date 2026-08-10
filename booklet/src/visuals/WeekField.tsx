@@ -3,13 +3,13 @@ import { COLORS, FONTS } from "../theme";
 import { COVER } from "../content";
 
 /**
- * WeekField — TaskFlow's cover motif. The app's own story, told as one image:
+ * WeekField — Cadence's cover motif. The app's own story, told as one image:
  * a plain-English sentence dissolving into typed chips (event/when/where ·
  * task/due/priority) that land on a MON–FRI week grid. "you type → it reads →
  * it files," lifted straight from the landing ParseShowcase (Welcome.tsx).
  *
- * NOT the sibling JobTracker book's envelope field, and not topographic — this
- * is native TaskFlow UI, rendered as print art. Pure HTML + inline styles on
+ * NOT the sibling Applied book's envelope field, and not topographic — this
+ * is native Cadence UI, rendered as print art. Pure HTML + inline styles on
  * the app's near-black ground with one soft emerald glow; no external assets,
  * so it is PDF-safe.
  *

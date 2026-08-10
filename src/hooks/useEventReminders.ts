@@ -6,7 +6,7 @@
  * within a short lead window — as a native `Notification` when the browser
  * permission is granted, otherwise as an in-app toast.
  *
- * Honest scope: these are in-app reminders that only fire while TaskFlow is
+ * Honest scope: these are in-app reminders that only fire while Cadence is
  * open in a tab. This is NOT background push — we never register a service
  * worker or send anything server-side.
  */

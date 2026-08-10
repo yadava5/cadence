@@ -1,5 +1,5 @@
 /**
- * /api/google/meeting — create a Google Calendar meeting from TaskFlow.
+ * /api/google/meeting — create a Google Calendar meeting from Cadence.
  *
  * GET  → { connected } — whether the signed-in user has connected Google
  *        Calendar (a stored refresh token), so the UI can show a "Connect

@@ -3,7 +3,7 @@ import { COLORS, FONTS, TYPE, PAGE, type SectionKey } from "../theme";
 import { DIORAMAS } from "../visuals/diorama";
 
 /**
- * Full-bleed chapter divider. TaskFlow's ground is the near-black app ink
+ * Full-bleed chapter divider. Cadence's ground is the near-black app ink
  * (#0A0A0B) and the single emerald accent carries the giant numeral, the
  * counter, and the diorama's one highlight. The chapter title stays paper-white
  * italic serif for contrast. Chapters differ by their signature line-art and

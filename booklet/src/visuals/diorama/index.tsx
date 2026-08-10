@@ -11,7 +11,7 @@ import { BuildJourney } from "./BuildJourney";
  * line-art from here: the dissolving form (WHY), the three-stage parse (HOW),
  * the one-function dispatcher (INSIDE), the all-green test report (PROOF), and
  * the type→persist journey (BUILD). Every scene is near-white linework with a
- * single emerald accent — TaskFlow's one-accent house rule.
+ * single emerald accent — Cadence's one-accent house rule.
  */
 
 export const DIORAMAS: Record<SectionKey, React.FC> = {

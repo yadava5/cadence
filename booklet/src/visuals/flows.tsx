@@ -4,7 +4,7 @@ import { COLORS, FONTS } from "../theme";
 /**
  * Flow diagrams for the System Card — the sankey-ish parse flow, the data path,
  * the 5-stage parse() timeline, the responsive breakpoint, and the three-tier
- * architecture. All print-safe SVG/flow, TaskFlow emerald-on-ink, honest to the
+ * architecture. All print-safe SVG/flow, Cadence emerald-on-ink, honest to the
  * repo. Text lives outside clipped boxes; SVG roots are `overflow: visible`.
  */
 

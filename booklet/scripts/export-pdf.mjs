@@ -1,5 +1,5 @@
 /**
- * Exports the running TaskFlow System Card booklet (http://localhost:5183)
+ * Exports the running Cadence System Card booklet (http://localhost:5183)
  * to a saddle-stitch PDF via puppeteer (one 8.75×11.25in sheet per manifest
  * page).
  *

@@ -22,7 +22,7 @@ name: Booklet
 #
 # The clean-checkout part is the whole point. A first pass that left the
 # author's macOS node_modules mounted reported all four repos green; re-run
-# with it shadowed, taskflow-calendar failed outright on a PostCSS plugin it
+# with it shadowed, cadence failed outright on a PostCSS plugin it
 # was silently borrowing from the root install. A guard whose green has only
 # been seen in the author's environment says nothing about the runner.
 # Do not weaken this to a warning; if a runner difference ever surfaces,

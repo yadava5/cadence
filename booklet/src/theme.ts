@@ -1,13 +1,13 @@
 /**
- * TaskFlow System Card — design tokens (self-contained).
+ * Cadence System Card — design tokens (self-contained).
  *
  * This booklet ships standalone: every token is inlined here so
- * `taskflow-calendar-main/booklet` builds with no external package. The palette
- * is TaskFlow's OWN identity, pulled verbatim from the app's landing + auth
+ * `cadence/booklet` builds with no external package. The palette
+ * is Cadence's OWN identity, pulled verbatim from the app's landing + auth
  * surface (src/pages/Welcome.tsx): a near-black ink ground and a SINGLE emerald
  * accent. The app is deliberately monochrome-plus-one — "one signature glow —
  * emerald, soft, never a gradient wash" (Welcome.tsx:90) — so unlike the
- * sibling JobTracker book (four semantic accents), TaskFlow carries one accent
+ * sibling Applied book (four semantic accents), Cadence carries one accent
  * across all five chapters and differentiates them through the section
  * signatures and line-art, not hue.
  *
@@ -92,7 +92,7 @@ export const FONTS = {
 } as const;
 
 // ---------------------------------------------------------------------------
-// Section color map — TaskFlow is single-accent, so every chapter carries the
+// Section color map — Cadence is single-accent, so every chapter carries the
 // same emerald on the dark dividers; SECTION_INK is the legible-on-white
 // emerald for content-page eyebrows and page-number footers. Chapters are
 // distinguished by their signature line-art and giant numerals, not by hue —

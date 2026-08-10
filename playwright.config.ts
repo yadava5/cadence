@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * E2E config for TaskFlow.
+ * E2E config for Cadence.
  *
  * Target: a production `vite preview` build driven in the app's built-in
  * offline/localStorage mode (the fixture returns a non-JSON response for every

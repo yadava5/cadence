@@ -1,7 +1,7 @@
 /**
  * Cadence System Card — copy + verified data (self-contained).
  *
- * Every number here is verified against the taskflow-calendar-main repo
+ * Every number here is verified against the cadence repo
  * (branch main) and carries a `source · file:line` rail where it is a
  * measured/enforced fact. Nothing is invented. A few deliberate honesty calls,
  * grounded in the code rather than a marketing line:

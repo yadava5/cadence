@@ -94,15 +94,13 @@ test.describe('settings controls (persist + real effect)', () => {
       dialog.getByRole('button', { name: 'Export JSON' }).click(),
     ]);
     expect(jsonDownload.suggestedFilename()).toMatch(
-      /^taskflow-export-.*\.json$/
+      /^cadence-export-.*\.json$/
     );
 
     const [icsDownload] = await Promise.all([
       page.waitForEvent('download'),
       dialog.getByRole('button', { name: '.ics' }).click(),
     ]);
-    expect(icsDownload.suggestedFilename()).toMatch(
-      /^taskflow-events-.*\.ics$/
-    );
+    expect(icsDownload.suggestedFilename()).toMatch(/^cadence-events-.*\.ics$/);
   });
 });

@@ -27,7 +27,7 @@ export interface GoogleAuthResult {
   isNewUser: boolean;
 }
 
-/** Input for creating a Google Calendar event (a "meeting") from TaskFlow. */
+/** Input for creating a Google Calendar event (a "meeting") from Cadence. */
 export interface CreateCalendarEventInput {
   summary: string;
   description?: string;
@@ -156,8 +156,8 @@ class GoogleOAuthService {
 
   /**
    * Finish a "Connect Google Calendar" grant for an ALREADY-authenticated
-   * TaskFlow user: exchange the code and store the refresh token on that
-   * user. The Google account email does not need to match the TaskFlow
+   * Cadence user: exchange the code and store the refresh token on that
+   * user. The Google account email does not need to match the Cadence
    * account — the grant belongs to whoever is signed in.
    */
   async connectCalendar(
@@ -208,7 +208,7 @@ class GoogleOAuthService {
    *
    * Uses the stored Google refresh token (granted the calendar.events scope) to
    * mint a fresh access token, then POSTs events.insert with `sendUpdates=all`
-   * so Google — not TaskFlow — delivers the invites; no Gmail send scope is
+   * so Google — not Cadence — delivers the invites; no Gmail send scope is
    * required. When `addMeet` is set, a Google Meet conference is requested and
    * `conferenceDataVersion=1` is passed so Google actually mints the video link.
    *

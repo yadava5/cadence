@@ -367,7 +367,7 @@ export function GeneralSettings() {
       });
       downloadBlob(
         json,
-        `taskflow-export-${exportDateStamp()}.json`,
+        `cadence-export-${exportDateStamp()}.json`,
         'application/json'
       );
       toast.success('Export ready', {
@@ -389,7 +389,7 @@ export function GeneralSettings() {
     }
     downloadBlob(
       buildEventsIcs(events),
-      `taskflow-events-${exportDateStamp()}.ics`,
+      `cadence-events-${exportDateStamp()}.ics`,
       'text/calendar'
     );
     toast.success('Calendar (.ics) downloaded', {

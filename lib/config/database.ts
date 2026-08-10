@@ -53,7 +53,7 @@ const createPool = () => {
     // Fail a stuck connect fast instead of hanging the whole request.
     connectionTimeoutMillis: databaseConfig.connectionTimeout,
     ssl: resolveSsl(databaseConfig.url),
-    // Pin the schema for every connection this pool hands out. TaskFlow's
+    // Pin the schema for every connection this pool hands out. Cadence's
     // SQL uses unqualified table names (FROM users, FROM tasks, ...), and it
     // co-tenants a Supabase pooler with an app that connects as
     // `?schema=lifequest`. Without this, a pooled server connection left on

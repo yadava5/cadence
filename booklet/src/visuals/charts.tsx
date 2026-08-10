@@ -5,7 +5,7 @@ import { COLORS, FONTS } from "../theme";
  * Chart vocabulary for the System Card — a deliberately VARIED, print-safe set
  * so the booklet proves its points without leaning on the bar chart. Every
  * figure is pure SVG/flow layout (no animation, no external asset), sized for
- * the 8.5×11 page, and drawn in TaskFlow's one-accent language: emerald for the
+ * the 8.5×11 page, and drawn in Cadence's one-accent language: emerald for the
  * product/primary series, neutral ink/steel for reference series.
  *
  * HONESTY: every number rendered here traces to content.ts / the repo. Nothing

@@ -85,7 +85,7 @@ export function GoogleCallbackPage() {
           return;
         }
 
-        // Sign-in flow: exchange the code for a TaskFlow session (JWTs).
+        // Sign-in flow: exchange the code for a Cadence session (JWTs).
         const response = await authAPI.googleAuth({ code, redirectUri });
 
         if (!response.success || !response.data) {

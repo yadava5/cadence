@@ -4,7 +4,7 @@ Paste everything below the line into a fresh chat, from the Cadence repo.
 
 ---
 
-I'm working on **Cadence** (`~/Documents/Projects/taskflow-calendar-main`), a
+I'm working on **Cadence** (`~/Documents/Projects/cadence`), a
 calendar/task app. Next.js-era React frontend, Node service layer over Postgres
 (Supabase), deployed on Vercel at `https://www.usecadenceapp.com`.
 

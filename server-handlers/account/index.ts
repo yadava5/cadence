@@ -3,11 +3,11 @@
  *
  * STRICTLY user-scoped: every statement is filtered by the caller's own
  * `userId` (or the user's own `id`), run inside a single transaction. This
- * co-tenants a shared Supabase project (TaskFlow lives in the `public` schema),
+ * co-tenants a shared Supabase project (Cadence lives in the `public` schema),
  * so we NEVER issue an unscoped delete and NEVER touch the global `tags` table
  * (shared, no user column) or any other tenant's schema. The pool pins
  * `search_path=public` for every connection, so unqualified table names resolve
- * to TaskFlow's own tables only.
+ * to Cadence's own tables only.
  */
 import type { VercelResponse } from '@vercel/node';
 import { createCrudHandler } from '../../lib/utils/apiHandler.js';

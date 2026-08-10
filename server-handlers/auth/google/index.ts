@@ -1,7 +1,7 @@
 /**
  * /api/auth/google
  *   GET  — return a Google OAuth authorization URL
- *   POST — exchange { code, redirectUri } for a TaskFlow session
+ *   POST — exchange { code, redirectUri } for a Cadence session
  *          (the shape the SPA's GoogleCallback page sends)
  */
 import { createMethodHandler } from '../../../lib/utils/apiHandler.js';
