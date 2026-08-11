@@ -82,8 +82,9 @@ class AuthService {
     // Generate tokens
     const tokens = await generateTokenPair(user.id, user.email);
 
-    // Store refresh token
-    refreshTokenService.storeRefreshToken(
+    // Store refresh token. AWAITED: the token is only usable once its row is
+    // committed — validation requires it (RefreshTokenService fails closed).
+    await refreshTokenService.storeRefreshToken(
       tokens.refreshToken,
       user.id,
       user.email
@@ -137,8 +138,8 @@ class AuthService {
     // Generate tokens
     const tokens = await generateTokenPair(user.id, user.email);
 
-    // Store refresh token
-    refreshTokenService.storeRefreshToken(
+    // Store refresh token. AWAITED: see registerUser.
+    await refreshTokenService.storeRefreshToken(
       tokens.refreshToken,
       user.id,
       user.email

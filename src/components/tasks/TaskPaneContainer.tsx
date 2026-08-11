@@ -19,139 +19,15 @@ import {
 import { TaskGroupCombobox } from '@/components/smart-input/components/TaskGroupCombobox';
 import { TaskList } from './TaskList';
 import { cn } from '@/lib/utils';
-import { Task, TaskPaneData } from '@shared/types';
+import { TaskPaneData } from '@shared/types';
 import { useUIStore, TaskPaneConfig, TaskGrouping } from '@/stores/uiStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTaskManagement } from '@/hooks/useTaskManagement';
+import { filterTasksForPane } from './taskPaneFilters';
 
 export interface TaskPaneContainerProps {
   className?: string;
   searchValue?: string;
-}
-
-/**
- * Generate filtered tasks for a specific pane configuration
- */
-function filterTasksForPane(
-  tasks: Task[],
-  paneConfig: TaskPaneConfig,
-  // taskGroups: Array<{ id: string; name: string }>,
-  sortBy: string,
-  sortOrder: string,
-  searchValue?: string
-): Task[] {
-  let filteredTasks = [...tasks];
-
-  // Apply grouping filter
-  switch (paneConfig.grouping) {
-    case 'taskList': {
-      // Use selectedTaskListId if available, otherwise fall back to filterValue
-      const targetTaskListId =
-        paneConfig.selectedTaskListId || paneConfig.filterValue;
-      if (targetTaskListId) {
-        filteredTasks = filteredTasks.filter(
-          (task) =>
-            task.taskListId === targetTaskListId ||
-            (!task.taskListId && targetTaskListId === 'default')
-        );
-      }
-      break;
-    }
-    case 'dueDate': {
-      // Filter by due date ranges
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const thisWeekEnd = new Date(today);
-      thisWeekEnd.setDate(thisWeekEnd.getDate() + (7 - today.getDay()));
-      const nextWeekEnd = new Date(thisWeekEnd);
-      nextWeekEnd.setDate(nextWeekEnd.getDate() + 7);
-
-      if (paneConfig.filterValue) {
-        filteredTasks = filteredTasks.filter((task) => {
-          if (!task.scheduledDate) return paneConfig.filterValue === 'no-date';
-
-          const taskDate = new Date(task.scheduledDate);
-          switch (paneConfig.filterValue) {
-            case 'today':
-              return taskDate >= today && taskDate < tomorrow;
-            case 'tomorrow':
-              return (
-                taskDate >= tomorrow &&
-                taskDate < new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000)
-              );
-            case 'this-week':
-              return taskDate >= today && taskDate <= thisWeekEnd;
-            case 'next-week':
-              return taskDate > thisWeekEnd && taskDate <= nextWeekEnd;
-            case 'later':
-              return taskDate > nextWeekEnd;
-            default:
-              return true;
-          }
-        });
-      }
-      break;
-    }
-    case 'priority': {
-      if (paneConfig.filterValue) {
-        filteredTasks = filteredTasks.filter(
-          (task) =>
-            task.priority === paneConfig.filterValue ||
-            (!task.priority && paneConfig.filterValue === 'none')
-        );
-      }
-      break;
-    }
-  }
-
-  // Apply completion filter
-  if (!paneConfig.showCompleted) {
-    filteredTasks = filteredTasks.filter((task) => !task.completed);
-  }
-
-  // Apply search filter
-  if (searchValue && searchValue.trim()) {
-    const searchTerm = searchValue.toLowerCase().trim();
-    filteredTasks = filteredTasks.filter((task) =>
-      task.title.toLowerCase().includes(searchTerm)
-    );
-  }
-
-  // Apply sorting
-  filteredTasks.sort((a, b) => {
-    let comparison = 0;
-    switch (sortBy) {
-      case 'title': {
-        comparison = a.title.localeCompare(b.title);
-        break;
-      }
-      case 'dueDate': {
-        const aDate = a.scheduledDate?.getTime() || 0;
-        const bDate = b.scheduledDate?.getTime() || 0;
-        comparison = aDate - bDate;
-        break;
-      }
-      case 'priority': {
-        const priorityOrder = { high: 3, medium: 2, low: 1 };
-        const aPriority =
-          priorityOrder[a.priority as keyof typeof priorityOrder] || 0;
-        const bPriority =
-          priorityOrder[b.priority as keyof typeof priorityOrder] || 0;
-        comparison = bPriority - aPriority; // High to low
-        break;
-      }
-      case 'createdAt':
-      default: {
-        comparison = b.createdAt.getTime() - a.createdAt.getTime(); // Newest first
-        break;
-      }
-    }
-    return sortOrder === 'asc' ? comparison : -comparison;
-  });
-
-  return filteredTasks;
 }
 
 /**

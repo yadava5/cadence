@@ -26,9 +26,19 @@ const { createMockRequest, createMockResponse } = await import(
   '../../__tests__/helpers/mockRequest.js'
 );
 
+const { rateLimitPresets, resetRateLimitStore } = await import(
+  '../../middleware/rateLimit.js'
+);
+
 /** Reuses the shared EventEmitter-backed mocks so the middleware chain runs. */
-function mockReqRes() {
-  const req = createMockRequest({ method: 'GET', url: '/api/health' });
+function mockReqRes(headers?: Record<string, string>) {
+  // Spread conditionally: `headers: undefined` would REPLACE the mock's default
+  // headers with undefined rather than leave them alone.
+  const req = createMockRequest({
+    method: 'GET',
+    url: '/api/health',
+    ...(headers ? { headers } : {}),
+  });
   const res = createMockResponse();
   return {
     req,
@@ -49,6 +59,8 @@ describe('healthCheckHandler', () => {
   beforeEach(() => {
     mockedQuery.mockReset();
     __resetHealthProbeForTests();
+    // Shared module state: these tests now spend rate-limit budget.
+    resetRateLimitStore();
   });
 
   it('reports ok and 200 when the database answers', async () => {
@@ -103,5 +115,35 @@ describe('healthCheckHandler', () => {
     }
 
     expect(mockedQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not consume the login allowance of the address it probes from', async () => {
+    /*
+     * The production outage of 2026-08-10, end to end: every limiter shared one
+     * counter per caller, so this scheduled probe (limit 100) spent the budget
+     * that `/api/auth/login` reads with a limit of 5. A clean browser's first
+     * click on "Sign in as the demo account" got 429 before a credential was
+     * ever submitted.
+     *
+     * Same caller identity throughout — only the bucket differs. With the old
+     * global key this fails on the first login attempt.
+     */
+    mockedQuery.mockResolvedValue({ rows: [], rowCount: 0 } as never);
+    const headers = { 'x-vercel-forwarded-for': '203.0.113.42' };
+
+    for (let i = 0; i < 12; i++) {
+      const h = mockReqRes(headers);
+      await healthCheckHandler(h.req, h.res);
+      expect(h.status).toBe(200);
+    }
+
+    const next = vi.fn();
+    for (let i = 0; i < 5; i++) {
+      const login = createMockRequest({ method: 'POST', headers });
+      const res = createMockResponse();
+      await rateLimitPresets.auth(login, res, next);
+      expect(vi.mocked(res.status)).not.toHaveBeenCalledWith(429);
+    }
+    expect(next).toHaveBeenCalledTimes(5);
   });
 });

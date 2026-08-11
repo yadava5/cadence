@@ -326,7 +326,7 @@ rather than being invalidated on write.
 
 ## Testing
 
-Cadence ships with a broad automated test suite. The two Vitest projects run **83 test files — 58 frontend (`vitest.config.ts`) and 25 backend (`vitest.backend.config.ts`) — for 1,186 tests: 635 frontend and 551 backend, with 0 skipped.** Those are the figures the two root configs actually execute, taken from their run summaries. The tree holds 93 `*.test.ts(x)` files on disk; the other 10 live in `packages/backend` and `packages/shared`, which the root configs do not glob — they run under their own workspace-level Vitest configs (`npm test`, which fans out across workspaces). The 13 Playwright specs under `e2e/` run separately again. So 1,186 is the two-root-config total, not a whole-repo total.
+Cadence ships with a broad automated test suite. The two Vitest projects run **103 test files — 69 frontend (`vitest.config.ts`) and 34 backend (`vitest.backend.config.ts`) — for 1,436 tests: 772 frontend and 664 backend, with 0 skipped.** Those are the figures the two root configs actually execute, taken from their run summaries. The tree holds 113 `*.test.ts(x)` files on disk; the other 10 live in `packages/backend` and `packages/shared`, which the root configs do not glob — they run under their own workspace-level Vitest configs (`npm test`, which fans out across workspaces). The 13 Playwright specs under `e2e/` run separately again. So 1,436 is the two-root-config total, not a whole-repo total.
 
 The 12 that used to be skipped are the Postgres row-level-security module. They needed a live database from an environment variable that no workflow set, so they had never executed — anywhere, once. They now start their own `postgres:16` via testcontainers when `RLS_TEST_PG_ADMIN_URL` is absent, which means the isolation policies are _demonstrated_ rather than merely written. CI additionally asserts that the suite ran and that nothing was skipped, because a skipped security test and a passing one produce the same green tick.
 
@@ -336,10 +336,10 @@ Coverage, measured rather than asserted:
 
 | Suite    | Tests |       Line |    Branch |
 | -------- | ----: | ---------: | --------: |
-| Backend  |   551 | **67.89%** |    76.27% |
-| Frontend |   635 |  see below | see below |
+| Backend  |   664 | **70.22%** |    78.97% |
+| Frontend |   772 |  see below | see below |
 
-These figures were recorded on 2026-08-10 by `npm run readme:record`, which runs both
+These figures were recorded on 2026-08-11 by `npm run readme:record`, which runs both
 suites and writes `docs/readme-facts.json`. Every countable claim on this page is checked
 against the code by `npm run readme:check`, which runs in CI and fails the build when a
 number drifts — or when a sentence is reworded so that its number escapes checking, which
@@ -518,14 +518,14 @@ Being precise about this is the point.
 
 Every figure above ends in a file you can open or a command you can run.
 
-**The test counts.** 1,186 is exactly two commands, one per root Vitest config:
+**The test counts.** 1,436 is exactly two commands, one per root Vitest config:
 
 ```bash
-npm run test:frontend:run   # vitest.config.ts          → 58 files, 635 tests
-npm run test:backend:run    # vitest.backend.config.ts  →  25 files, 551 tests
+npm run test:frontend:run   # vitest.config.ts          → 69 files, 772 tests
+npm run test:backend:run    # vitest.backend.config.ts  →  34 files, 664 tests
 ```
 
-The `include` globs in those two files are the whole explanation for why 1,186 is not the number of tests in the repository. `vitest.config.ts` takes `src/**/*.test.ts(x)` and excludes `packages/`, `api/`, `lib/` and `test/`; `vitest.backend.config.ts` takes `api/`, `lib/` and `server-handlers/` and excludes `src/`. Neither reaches `packages/backend` or `packages/shared` — those run under `npm run test:all`, which fans `test:run` across the workspaces first. The 13 Playwright specs in `e2e/` run under `npm run test:e2e`.
+The `include` globs in those two files are the whole explanation for why 1,436 is not the number of tests in the repository. `vitest.config.ts` takes `src/**/*.test.ts(x)` and excludes `packages/`, `api/`, `lib/` and `test/`; `vitest.backend.config.ts` takes `api/`, `lib/` and `server-handlers/` and excludes `src/`. Neither reaches `packages/backend` or `packages/shared` — those run under `npm run test:all`, which fans `test:run` across the workspaces first. The 13 Playwright specs in `e2e/` run under `npm run test:e2e`.
 
 **Two caveats on that sentence, both worth knowing before you trust it.** First,
 `npm run test:all` **exits 1 on a clean checkout**: `packages/backend`'s
@@ -542,17 +542,18 @@ CI, which is not the same as tested.
 npm run test:backend:coverage   # vitest run --config vitest.backend.config.ts --coverage
 ```
 
-The v8 provider and its `include: ['api/**/*.ts', 'lib/**/*.ts']` are declared in `vitest.backend.config.ts`, so 67.89% is scoped to exactly those two trees and nothing else. The frontend row is the same kind of pass over `vitest.config.ts`; there is deliberately no script and no gate for it, for the reason given in [Testing](#testing).
+The v8 provider and its `include: ['api/**/*.ts', 'lib/**/*.ts']` are declared in `vitest.backend.config.ts`, so 70.22% is scoped to exactly those two trees and nothing else. The frontend row is the same kind of pass over `vitest.config.ts`; there is deliberately no script and no gate for it, for the reason given in [Testing](#testing).
 
 **The database isolation claims.**
 
-| Open this                                                | What it settles                                                                               |
-| -------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `lib/config/migrations/0002_enable_rls.sql`              | the 22 policies, and `ENABLE` + `FORCE` on all seven tenant tables                            |
-| `lib/config/migrations/0003_create_cadence_app_role.sql` | that `cadence_app` is created `NOSUPERUSER NOBYPASSRLS`, so the policies bind the app         |
-| `lib/config/database.ts`                                 | `set_config('app.user_id', …, true)` — transaction-local, so it cannot leak across the pooler |
-| `lib/__tests__/rls.postgres.test.ts`                     | the policies enforced against a real `postgres:16`, not asserted in prose                     |
-| `docs/RLS-CUTOVER.md`                                    | the cutover itself, dated, with the checks that were run after the switch                     |
+| Open this                                                        | What it settles                                                                                            |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `lib/config/migrations/0002_enable_rls.sql`                      | the 22 policies, and `ENABLE` + `FORCE` on all seven tenant tables                                         |
+| `lib/config/migrations/0003_create_cadence_app_role.sql`         | that `cadence_app` is created `NOSUPERUSER NOBYPASSRLS`, so the policies bind the app                      |
+| `lib/config/migrations/0006_task_tags_require_tag_ownership.sql` | why the `task_tags` policy has to check the **tag**'s owner and not only the task's — written, not yet run |
+| `lib/config/database.ts`                                         | `set_config('app.user_id', …, true)` — transaction-local, so it cannot leak across the pooler              |
+| `lib/__tests__/rls.postgres.test.ts`                             | the policies enforced against a real `postgres:16`, not asserted in prose                                  |
+| `docs/RLS-CUTOVER.md`                                            | the cutover itself, dated, with the checks that were run after the switch                                  |
 
 **CI.** `.github/workflows/ci.yml` runs lint, typecheck, both unit suites and the build on every push and pull request to `main`. The last step of its backend job is the one worth reading: it parses the Vitest JSON report and fails the build if `rls.postgres.test.ts` reports zero tests or any skip, because a security suite that skipped and one that passed produce the same green tick. `codeql.yml`, `gitleaks.yml` and `scorecard.yml` run alongside it.
 

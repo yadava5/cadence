@@ -2,6 +2,7 @@
  * API route handler utilities for Vercel
  */
 import type { VercelResponse } from '@vercel/node';
+import type { z } from 'zod';
 import type {
   AuthenticatedRequest,
   RouteConfig,
@@ -11,13 +12,38 @@ import { HttpMethod } from '../types/api.js';
 import { asyncHandler, sendError } from '../middleware/errorHandler.js';
 import { corsMiddleware } from '../middleware/cors.js';
 import { requestIdMiddleware, requestLogger } from '../middleware/requestId.js';
-import { rateLimitPresets } from '../middleware/rateLimit.js';
+import { rateLimit, rateLimitPresets } from '../middleware/rateLimit.js';
 import { validateRequest } from '../middleware/validation.js';
 import type { ValidationConfig } from '../middleware/validation.js';
 import { composeMiddleware } from '../middleware/index.js';
 import { devAuth, authenticateJWT } from '../middleware/auth.js';
 import { ApiError } from '../types/api.js';
 import { query } from '../config/database.js';
+
+/**
+ * Resolve a route's `rateLimit` declaration into an actual limiter.
+ *
+ * Both branches of the old `if (route.rateLimit)` pushed `rateLimitPresets.api`,
+ * so every per-route limit in the repo was silently discarded — and since
+ * `createCrudHandler` never forwarded its own `rateLimit` option either, that
+ * meant EVERY declaration (`server-handlers/account/index.ts` asking for
+ * `'write'`, and the explicit windows in `lib/examples/apiRouteExample.ts`) was
+ * decoration.
+ */
+function resolveRouteRateLimit(
+  method: HttpMethod,
+  config: NonNullable<RouteConfig['rateLimit']>
+) {
+  if (typeof config === 'string') {
+    return rateLimitPresets[config];
+  }
+
+  return rateLimit({
+    bucket: config.bucket ?? `route:${method}:${config.windowMs}:${config.max}`,
+    windowMs: config.windowMs,
+    max: config.max,
+  });
+}
 
 /**
  * Create a standardized API route handler
@@ -47,12 +73,11 @@ export function createApiHandler(
       ];
 
       // Add rate limiting if configured
-      if (route.rateLimit) {
-        // Custom per-route limits could be wired here; default preset for now
-        middlewares.push(rateLimitPresets.api);
-      } else {
-        middlewares.push(rateLimitPresets.api); // Default rate limiting
-      }
+      middlewares.push(
+        route.rateLimit
+          ? resolveRouteRateLimit(method, route.rateLimit)
+          : rateLimitPresets.api // Default rate limiting
+      );
 
       // Add authentication if required
       if (route.requireAuth) {
@@ -102,11 +127,22 @@ export function createMethodHandler(
      * `auth/logout`, whose "log out from all devices" therefore never ran.
      */
     requireAuth?: boolean;
+    /**
+     * Per-method request validation, run after auth and before the handler.
+     *
+     * Same `validateRequest` middleware that `createApiHandler` drives from
+     * `RouteConfig.validateBody/validateQuery`; this factory just had no way to
+     * declare it, which is why `events/conflicts` parsed `?start=` with a bare
+     * `new Date()` and answered 500 on garbage.
+     */
+    validate?: Partial<Record<HttpMethod, ValidationConfig>>;
   }
 ) {
-  // Auth routes pass `{ rateLimit: 'auth' }` to get the strict 5/15min limiter
-  // instead of the lenient 100/15min api default — the difference between a
-  // real brute-force/credential-stuffing throttle and none.
+  // Credential routes (login, register) pass `{ rateLimit: 'auth' }` to get the
+  // strict 5/15min limiter instead of the lenient 100/15min api default — the
+  // difference between a real credential-stuffing throttle and none. Token
+  // refresh passes `'authRefresh'`: same family, different bucket, because a
+  // live session's own refresh traffic is not a credential guess.
   const limiter = rateLimitPresets[options?.rateLimit ?? 'api'];
   return asyncHandler(
     async (req: AuthenticatedRequest, res: VercelResponse) => {
@@ -130,6 +166,11 @@ export function createMethodHandler(
         middlewares.push(authenticateJWT());
       }
 
+      const validation = options?.validate?.[method];
+      if (validation && Object.keys(validation).length > 0) {
+        middlewares.push(validateRequest(validation));
+      }
+
       // Apply basic middleware
       await composeMiddleware(...middlewares)(req, res, async () => {
         await handler(req, res);
@@ -149,6 +190,28 @@ export function createCrudHandler(config: {
   delete?: (req: AuthenticatedRequest, res: VercelResponse) => Promise<void>;
   requireAuth?: boolean;
   rateLimit?: 'read' | 'write' | 'api';
+  /**
+   * Per-method request validation, keyed by the same lowercase names as the
+   * handlers above.
+   *
+   * This sets `RouteConfig.validateBody` / `validateQuery`, which
+   * `createApiHandler` has always honoured — the declaration surface simply had
+   * no consumer outside `lib/examples/apiRouteExample.ts`, so no data route
+   * validated anything. `GET /api/events?start=garbage` reached
+   * `new Date('garbage')`, pg threw `RangeError: Invalid time value`, and the
+   * caller got a 500 for a malformed request.
+   *
+   * The schemas are gates, not parsers: handlers keep reading `req.query` /
+   * `req.body`. Zod strips unknown keys by default, so reading
+   * `req.validated.query` instead would silently drop every filter the schema
+   * did not happen to enumerate.
+   */
+  validate?: Partial<
+    Record<
+      'get' | 'post' | 'put' | 'patch' | 'delete',
+      { body?: z.ZodSchema; query?: z.ZodSchema }
+    >
+  >;
 }) {
   const routes: Partial<Record<HttpMethod, RouteConfig>> = {};
 
@@ -190,6 +253,33 @@ export function createCrudHandler(config: {
       handler: config.delete,
       requireAuth: config.requireAuth,
     };
+  }
+
+  // Forward the declared preset to every method. Without this the option was
+  // accepted and dropped: `account` asked for `'write'` (50/window) and got the
+  // `api` default (100/window).
+  if (config.rateLimit) {
+    for (const route of Object.values(routes)) {
+      if (route) route.rateLimit = config.rateLimit;
+    }
+  }
+
+  if (config.validate) {
+    const methodsByKey = [
+      ['get', HttpMethod.GET],
+      ['post', HttpMethod.POST],
+      ['put', HttpMethod.PUT],
+      ['patch', HttpMethod.PATCH],
+      ['delete', HttpMethod.DELETE],
+    ] as const;
+
+    for (const [key, method] of methodsByKey) {
+      const rules = config.validate[key];
+      const route = routes[method];
+      if (!rules || !route) continue;
+      if (rules.body) route.validateBody = rules.body;
+      if (rules.query) route.validateQuery = rules.query;
+    }
   }
 
   return createApiHandler(routes);
@@ -255,32 +345,41 @@ export function __resetHealthProbeForTests(): void {
   lastProbe = null;
 }
 
-export const healthCheckHandler = createMethodHandler({
-  [HttpMethod.GET]: async (req: AuthenticatedRequest, res: VercelResponse) => {
-    const database = await probeDatabase();
+export const healthCheckHandler = createMethodHandler(
+  {
+    [HttpMethod.GET]: async (
+      req: AuthenticatedRequest,
+      res: VercelResponse
+    ) => {
+      const database = await probeDatabase();
 
-    // Every field the previous response carried is still here and unchanged,
-    // so anything already reading `status`/`timestamp`/`environment`/`version`
-    // keeps working. What is new is that `status` can now be 'error', and that
-    // the endpoint answers 503 when the database it depends on is unreachable.
-    res.status(database.ok ? 200 : 503).json({
-      success: database.ok,
-      data: {
-        status: database.ok ? 'ok' : 'error',
-        timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV || 'development',
-        version: process.env.npm_package_version || '1.0.0',
-        checks: {
-          database: {
-            ok: database.ok,
-            latencyMs: database.latencyMs,
-            ...(database.error ? { error: database.error } : {}),
+      // Every field the previous response carried is still here and unchanged,
+      // so anything already reading `status`/`timestamp`/`environment`/`version`
+      // keeps working. What is new is that `status` can now be 'error', and that
+      // the endpoint answers 503 when the database it depends on is unreachable.
+      res.status(database.ok ? 200 : 503).json({
+        success: database.ok,
+        data: {
+          status: database.ok ? 'ok' : 'error',
+          timestamp: new Date().toISOString(),
+          environment: process.env.NODE_ENV || 'development',
+          version: process.env.npm_package_version || '1.0.0',
+          checks: {
+            database: {
+              ok: database.ok,
+              latencyMs: database.latencyMs,
+              ...(database.error ? { error: database.error } : {}),
+            },
           },
         },
-      },
-    });
+      });
+    },
   },
-});
+  // Its own bucket. This endpoint is the app's scheduled uptime probe and
+  // Supabase keep-alive: on the old shared counter its traffic alone kept
+  // `/api/auth/login` and `/api/auth/refresh` permanently 429'd.
+  { rateLimit: 'health' }
+);
 
 /**
  * Not found handler

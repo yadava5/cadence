@@ -6,7 +6,7 @@ import { getAllServices } from '../../lib/services/index.js';
 import { sendSuccess, sendError } from '../../lib/middleware/errorHandler.js';
 import type { AuthenticatedRequest } from '../../lib/types/api.js';
 import type { VercelResponse } from '@vercel/node';
-import type { UpdateTaskListDTO } from '../../lib/services/TaskListService';
+import type { UpdateTaskListDTO } from '../../lib/services/TaskListService.js';
 import {
   UnauthorizedError,
   ValidationError,
@@ -166,11 +166,27 @@ export default createCrudHandler({
 
       switch (action) {
         case 'set-default': {
-          result = await taskListService.setDefault(taskListId, {
-            userId,
-            requestId: req.headers['x-request-id'] as string,
-          });
-          break;
+          // `TaskListService` has `getDefault` and no `setDefault` — this call
+          // was a copy of the calendars handler (`CalendarService.setDefault`
+          // does exist) and threw `TypeError: ... is not a function`, which the
+          // catch below turned into a 500. Nothing in `src/` sends this action
+          // for task lists (only `calendars/{id}?action=set-default` is used),
+          // so it fails closed with an honest 400 rather than growing a feature
+          // that was never asked for. Implementing it is a separate decision.
+          return sendError(
+            res,
+            new ValidationError(
+              [
+                {
+                  field: 'action',
+                  message:
+                    "Unsupported action 'set-default' for task lists; task lists have no default flag",
+                  code: 'UNSUPPORTED_ACTION',
+                },
+              ],
+              "Unsupported action 'set-default' for task lists"
+            )
+          );
         }
 
         default: {

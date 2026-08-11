@@ -1,7 +1,13 @@
 /**
  * Database configuration for Vercel API routes (Pure SQL via pg)
  */
-import { Pool, types, type PoolClient, type QueryResult } from 'pg';
+import {
+  Pool,
+  types,
+  type PoolClient,
+  type QueryResult,
+  type QueryResultRow,
+} from 'pg';
 import { SUPABASE_CA } from './supabaseCA.js';
 import { getRlsUserId } from './rlsContext.js';
 
@@ -151,7 +157,16 @@ const isPool = (c: SqlClient): c is Pool => c instanceof Pool;
 // non-RLS auth pool paths) we keep the original plain-pooled behaviour so those
 // flows are unaffected. Under FORCE RLS such a query sees no rows / is rejected
 // on the tenant tables, which is the intended fail-closed posture.
-export async function query<T = unknown>(
+//
+// The row generic defaults to `QueryResultRow` (pg's `{ [column: string]: any }`)
+// rather than `unknown`. Nearly every caller writes `const res = await query(...)`
+// with no explicit type and then reads `res.rows[0].id`; with an `unknown`
+// default that is an error in every one of them, and several of those callers
+// live in files owned by other work in flight. pg constrains its own row
+// generic to `QueryResultRow`, which an *interface* (e.g. `EventEntity`) never
+// satisfies — interfaces get no implicit index signature — so the generic is
+// carried by us and applied at the driver boundary with a cast.
+export async function query<T = QueryResultRow>(
   sql: string,
   params: unknown[] = [],
   client?: SqlClient
@@ -160,17 +175,17 @@ export async function query<T = unknown>(
   // transaction start (see withTransaction) — use it directly, and never retry
   // (a mid-transaction reconnect would be incorrect).
   if (client && !isPool(client)) {
-    return (client as PoolClient).query<T>(sql, params);
+    return (client as PoolClient).query(sql, params) as Promise<QueryResult<T>>;
   }
 
   const userId = getRlsUserId();
   if (!userId) {
     try {
-      return await pool.query<T>(sql, params);
+      return (await pool.query(sql, params)) as QueryResult<T>;
     } catch (error) {
       if (isTransientConnectionError(error)) {
         console.warn('pg transient error, retrying query once:', String(error));
-        return pool.query<T>(sql, params);
+        return pool.query(sql, params) as Promise<QueryResult<T>>;
       }
       throw error;
     }
@@ -204,7 +219,7 @@ async function runGucTx<T>(
     const setcfg = c.query("SELECT set_config('app.user_id', $1, true)", [
       userId,
     ]);
-    const result = c.query<T>(sql, params);
+    const result = c.query(sql, params) as Promise<QueryResult<T>>;
     const commit = c.query('COMMIT');
     await begin;
     await setcfg;

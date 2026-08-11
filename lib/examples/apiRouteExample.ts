@@ -3,11 +3,11 @@
  * This file demonstrates how to use the middleware and utilities
  */
 import { z } from 'zod';
-import { createApiHandler, createCrudHandler } from '../utils/apiHandler';
-import { HttpMethod } from '../types/api';
-import { sendSuccess } from '../middleware/errorHandler';
-import { NotFoundError, ValidationError } from '../types/api';
-import type { AuthenticatedRequest } from '../types/api';
+import { createApiHandler, createCrudHandler } from '../utils/apiHandler.js';
+import { HttpMethod } from '../types/api.js';
+import { sendSuccess } from '../middleware/errorHandler.js';
+import { NotFoundError, ValidationError } from '../types/api.js';
+import type { AuthenticatedRequest } from '../types/api.js';
 import type { VercelResponse } from '@vercel/node';
 
 /**
@@ -84,7 +84,13 @@ export const exampleTaskHandler = createApiHandler({
   [HttpMethod.GET]: {
     method: HttpMethod.GET,
     handler: async (req: AuthenticatedRequest, res: VercelResponse) => {
-      const query = req.query;
+      // Read the *validated* query, not the raw one: `validateQuery` below
+      // parses and coerces into `req.validated.query`, so `page`/`limit` are
+      // numbers and `completed` is a boolean here. Reading `req.query` gets
+      // the raw `string | string[]` and is what the real routes used to do.
+      const query = (req.validated?.query ?? {}) as z.infer<
+        typeof taskQuerySchema
+      >;
 
       // Simulate database query with filters
       const tasks = [

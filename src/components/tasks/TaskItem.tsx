@@ -26,7 +26,18 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
+import { taskDeleteIsRecoverable } from '@/lib/undoDelete';
 import { Task } from '@shared/types';
 import { useCalendars } from '@/hooks/useCalendars';
 import { useTasks } from '@/hooks/useTasks';
@@ -187,7 +198,26 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     onToggle(task.id);
   };
 
+  /**
+   * Deleting is undoable, so it does not stop to ask — except when the task
+   * carries files. Those cascade out of the database with the task and cannot
+   * be re-registered against a blob we cannot prove still exists, so that one
+   * case gets a confirmation instead of an undo it could not honour. See
+   * src/lib/undoDelete.ts.
+   */
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const attachmentCount = task.attachments?.length ?? 0;
+
   const handleDelete = useCallback(() => {
+    if (!taskDeleteIsRecoverable(task)) {
+      setConfirmDeleteOpen(true);
+      return;
+    }
+    onDelete(task.id);
+  }, [task, onDelete]);
+
+  const confirmDelete = useCallback(() => {
+    setConfirmDeleteOpen(false);
     onDelete(task.id);
   }, [task.id, onDelete]);
 
@@ -642,6 +672,30 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           </DropdownMenu>
         </div>
       )}
+
+      {/* Deleting a task with files is the one delete that Undo cannot make
+          good, so it asks first and says exactly what will be lost. */}
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete “{task.title}”?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {attachmentCount === 1
+                ? 'This task has 1 attached file. Deleting it removes the file too, and that cannot be undone.'
+                : `This task has ${attachmentCount} attached files. Deleting it removes them too, and that cannot be undone.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={confirmDelete}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Attachment Preview Dialog */}
       <AttachmentPreviewDialog

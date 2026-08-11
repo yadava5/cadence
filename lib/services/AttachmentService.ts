@@ -4,11 +4,11 @@
 // PrismaClient type is not directly referenced in this file
 import {
   BaseService,
-  type BaseServiceConfig,
   type ServiceContext,
   type BaseEntity,
 } from './BaseService.js';
-import { query, type SqlClient } from '../config/database.js';
+import { query } from '../config/database.js';
+import { deleteBlobObjects } from '../utils/blobCleanup.js';
 
 /**
  * Attachment entity interface extending base
@@ -138,29 +138,21 @@ export class AttachmentService extends BaseService<
   UpdateAttachmentDTO,
   AttachmentFilters
 > {
-  private static schemaEnsured = false;
+  // The constructor used to fire `ensureSchema()` as an unawaited `void`:
+  // `ALTER TABLE attachments ADD COLUMN IF NOT EXISTS "thumbnailUrl" text`, on
+  // every instantiation. It is gone; the column is declared in
+  // `lib/config/migrations/0008_schema_columns_from_runtime_ddl.sql`.
+  //
+  // Three separate problems, only the first of which the migration fixes:
+  // DDL from a request path takes an ACCESS EXCLUSIVE lock on `attachments`;
+  // the `catch` swallowed failures WITHOUT setting `schemaEnsured`, so a
+  // database that refused the ALTER got it retried on every single
+  // construction, forever; and because it was unawaited, nothing downstream
+  // could have relied on it having finished anyway. The column was confirmed
+  // present on the live table (`text`, nullable) before this was deleted.
+  //
+  // No explicit constructor is needed now — BaseService's is inherited.
 
-  constructor(
-    dbOrConfig?: SqlClient | BaseServiceConfig,
-    maybeConfig?: BaseServiceConfig
-  ) {
-    super(dbOrConfig, maybeConfig);
-    void this.ensureSchema();
-  }
-
-  private async ensureSchema(): Promise<void> {
-    if (AttachmentService.schemaEnsured) return;
-    try {
-      await query(
-        'ALTER TABLE attachments ADD COLUMN IF NOT EXISTS "thumbnailUrl" text',
-        [],
-        this.db
-      );
-      AttachmentService.schemaEnsured = true;
-    } catch {
-      // ignore
-    }
-  }
   protected getTableName(): string {
     return 'attachments';
   }
@@ -667,9 +659,13 @@ export class AttachmentService extends BaseService<
       // Delete from database
       await query('DELETE FROM attachments WHERE id = $1', [id], this.db);
 
-      // TODO: Delete file from storage (Vercel Blob, S3, etc.)
-      // This would require implementing file storage cleanup
-      // await this.deleteFileFromStorage(attachment.fileUrl);
+      // Then the object itself. Uploads are stored `access: 'public'`, so a
+      // blob whose row is gone is not orphaned-but-private — it is a permanent
+      // public URL for a file the user believes they deleted. Row first,
+      // object second: if this call fails we leak an object (recoverable), and
+      // in the other order a failed delete would leave a row pointing at
+      // nothing (a broken attachment the user cannot remove).
+      await deleteBlobObjects([attachment.fileUrl, attachment.thumbnailUrl]);
 
       this.log(
         'delete:success',
@@ -699,10 +695,17 @@ export class AttachmentService extends BaseService<
     try {
       this.log('bulkDelete', { ids }, context);
 
-      // Get attachments to verify ownership
+      // Get attachments to verify ownership — and their blob URLs, which have
+      // to be read BEFORE the rows go, because afterwards there is nothing left
+      // to say which objects belonged to them.
       const placeholders = ids.map((_, i) => `$${i + 1}`).join(',');
-      const attachments = await query<{ id: string; userId: string }>(
-        `SELECT a.id, t."userId" FROM attachments a JOIN tasks t ON t.id = a."taskId" WHERE a.id IN (${placeholders}) AND t."userId" = $${ids.length + 1}`,
+      const attachments = await query<{
+        id: string;
+        userId: string;
+        fileUrl: string;
+        thumbnailUrl: string | null;
+      }>(
+        `SELECT a.id, a."fileUrl", a."thumbnailUrl", t."userId" FROM attachments a JOIN tasks t ON t.id = a."taskId" WHERE a.id IN (${placeholders}) AND t."userId" = $${ids.length + 1}`,
         [...ids, userId],
         this.db
       );
@@ -720,10 +723,10 @@ export class AttachmentService extends BaseService<
         this.db
       );
 
-      // TODO: Delete files from storage
-      // for (const attachment of attachments) {
-      //   await this.deleteFileFromStorage(attachment.fileUrl);
-      // }
+      // Then the public objects those rows pointed at.
+      await deleteBlobObjects(
+        attachments.rows.flatMap((a) => [a.fileUrl, a.thumbnailUrl])
+      );
 
       const deletedCount = result.rowCount ?? 0;
       this.log('bulkDelete:success', { deletedCount }, context);
@@ -817,16 +820,46 @@ export class AttachmentService extends BaseService<
   }
 
   /**
-   * Clean up orphaned attachments (attachments with no associated task)
+   * Clean up orphaned attachments (attachment rows whose task no longer exists).
+   *
+   * ## This cannot be scoped by user, and it also cannot find anything
+   *
+   * The multi-tenant audit asked for an `AND "userId" = $n` here alongside the
+   * other unscoped queries. It is not implementable, and the reason is worth
+   * writing down so nobody adds it later believing it was an oversight:
+   * `attachments` has no `userId` column — ownership is derived through
+   * `attachments."taskId" -> tasks."userId"` — and this query's entire subject
+   * is rows whose task is GONE. There is no owner left to compare against. The
+   * predicate does not exist to be added.
+   *
+   * The rows do not exist either. `attachments."taskId"` is NOT NULL with
+   * `attachments_taskId_fkey ON DELETE CASCADE`, so a row cannot outlive its
+   * task; and under 0002 the `attachments_all` policy requires
+   * `EXISTS(owning task)`, so if one somehow did, the application role could
+   * neither see nor delete it. In production this method returns 0 by
+   * construction.
+   *
+   * What CAN be scoped is the caller, so that is what is enforced: an
+   * unauthenticated invocation is refused rather than being allowed to issue an
+   * unfiltered DELETE against a local database where RLS is off. Kept (rather
+   * than deleted) because `DELETE /api/attachments/cleanup` routes to it.
    */
   async cleanupOrphanedAttachments(
     context?: ServiceContext
   ): Promise<{ deletedCount: number }> {
+    if (!context?.userId) {
+      throw new Error('AUTHORIZATION_ERROR: User ID required');
+    }
+
     try {
       this.log('cleanupOrphanedAttachments', {}, context);
 
-      const orphanedRes = await query<{ id: string; fileUrl: string }>(
-        `SELECT a.id, a."fileUrl" FROM attachments a
+      const orphanedRes = await query<{
+        id: string;
+        fileUrl: string;
+        thumbnailUrl: string | null;
+      }>(
+        `SELECT a.id, a."fileUrl", a."thumbnailUrl" FROM attachments a
          LEFT JOIN tasks t ON t.id = a."taskId"
          WHERE t.id IS NULL`,
         [],
@@ -841,10 +874,9 @@ export class AttachmentService extends BaseService<
           this.db
         );
 
-        // TODO: Clean up files from storage
-        // for (const attachment of orphanedAttachments) {
-        //   await this.deleteFileFromStorage(attachment.fileUrl);
-        // }
+        await deleteBlobObjects(
+          orphanedRes.rows.flatMap((a) => [a.fileUrl, a.thumbnailUrl])
+        );
       }
 
       this.log(
@@ -858,15 +890,5 @@ export class AttachmentService extends BaseService<
       this.log('cleanupOrphanedAttachments:error', { error: message }, context);
       throw error;
     }
-  }
-
-  /**
-   * Private method to delete file from storage
-   * TODO: Implement based on storage provider (Vercel Blob, S3, etc.)
-   */
-  private async deleteFileFromStorage(fileUrl: string): Promise<void> {
-    // Placeholder for file storage cleanup
-    // Implementation depends on storage provider
-    this.log('deleteFileFromStorage', { fileUrl });
   }
 }

@@ -1,0 +1,97 @@
+// Typecheck project for the serverless API.
+//
+// ## Why this file exists
+//
+// Until it was added, NOTHING type-checked the production API. The root
+// `tsconfig.json` has `"files": []` and references only `tsconfig.app.json`
+// (`include: ["src"]`), `tsconfig.node.json` (`include: ["vite.config.ts"]`)
+// and the two workspace packages, and CI ran exactly the first two
+// (`.github/workflows/ci.yml`). An `api/tsconfig.json` existed but was
+// referenced by nothing and run by nothing; it has been deleted in favour of
+// this file so there is one config for this tree, sitting next to the two
+// configs CI already knows how to run.
+//
+// The cost of that gap was `server-handlers/auth/me.ts`, which called
+// `createApiHandler({ routes: [...] })` when the function takes a method-keyed
+// object. `routes['GET']` was `undefined`, so `GET /api/auth/me` answered 405
+// to every request in production from the day it was written. It is a plain
+// excess-property error — one `tsc` run away from being impossible.
+//
+// ## What this project covers
+//
+//   api/**             the catch-all dispatcher
+//   lib/**             services, middleware, config, types
+//   server-handlers/** all 37 production handlers
+//
+// `packages/backend/**` and `packages/shared/**` are pulled in transitively via
+// imports (e.g. `AuthService`, `jwt`), so they are checked here too.
+//
+// ## Deliberately relaxed compiler options
+//
+// `strict` is ON. Two of its sub-flags are turned back off, and both are
+// temporary — the reason each is off is a fact about the current tree, not a
+// preference:
+//
+//   "useUnknownInCatchVariables": false
+//       151 errors. Every handler and service is written `catch (error) { ...
+//       error.message ... }`. Fixing it means editing ~25 files including
+//       `lib/services/TagService.ts` and `server-handlers/tags/merge.ts`.
+//
+//   "strictNullChecks": false
+//       55 errors with it on, of which 11 sit in files that cannot be touched
+//       right now (`lib/services/AttachmentService.ts`,
+//       `lib/services/TagService.ts` — `rowCount` is `number | null` in
+//       @types/pg, and `TagEntity` omits the timestamp columns). The rest are
+//       null/undefined mismatches inside service business logic
+//       (`EventService` 696/713-718, `CalendarService` 427/444) that deserve
+//       their own pass rather than being swept up in a config change.
+//
+// Everything else strict stays on, including `noImplicitAny` and
+// `strictFunctionTypes` — those cost only five mechanical fixes, so leaving
+// them on was cheap and makes this a materially stronger gate.
+//
+// To tighten later: flip `strictNullChecks` first (it is the bigger win), fix
+// the ~55 sites, then `useUnknownInCatchVariables`.
+//
+// ## What this gate can and cannot catch
+//
+// It DOES reject the `me.ts` shape: excess-property checking is not a strict
+// flag, so `createApiHandler({ routes: [...] })` is TS2353 even here. Its
+// limit is that excess-property checking only fires on a *fresh object literal*
+// at the call site — a hoisted `const cfg = { routes: [...] }` would pass,
+// because `Partial<Record<HttpMethod, RouteConfig>>` has no required keys and
+// `{}` is assignable to it. That is why the runtime test in
+// `server-handlers/auth/__tests__/me.test.ts` exists as a second, independent
+// gate. Neither replaces the other.
+//
+// Tests are excluded, matching `tsconfig.app.json`.
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+
+    "strict": true,
+    "useUnknownInCatchVariables": false,
+    "strictNullChecks": false,
+
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": ["./packages/shared/src/*"],
+      "@lib/*": ["./lib/*"],
+      "@api/*": ["./api/*"]
+    },
+    "types": ["node"]
+  },
+  "include": ["api/**/*.ts", "lib/**/*.ts", "server-handlers/**/*.ts"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/__tests__/**"]
+}
