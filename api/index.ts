@@ -3,7 +3,7 @@
  *
  * Vercel's Hobby tier caps deployments at 12 serverless functions; the
  * per-file handlers under ../server-handlers (formerly api/*) numbered
- * 37. This dispatcher keeps every handler byte-for-byte intact and
+ * 36. This dispatcher keeps every handler byte-for-byte intact and
  * routes to it by path, restoring the dynamic-segment params that
  * Vercel's filesystem router would have injected (req.query.id).
  */
@@ -24,7 +24,6 @@ import account from '../server-handlers/account/index.js';
 import googleCalendar from '../server-handlers/google/calendar.js';
 import googleMeeting from '../server-handlers/google/meeting.js';
 import attachments from '../server-handlers/attachments/index.js';
-import attachmentsCleanup from '../server-handlers/attachments/cleanup.js';
 import attachmentsStats from '../server-handlers/attachments/stats.js';
 import attachmentById from '../server-handlers/attachments/[id].js';
 import calendars from '../server-handlers/calendars/index.js';
@@ -69,7 +68,6 @@ const ROUTES: Array<[string[], Handler]> = [
   [['google', 'calendar'], googleCalendar],
   [['google', 'meeting'], googleMeeting],
   [['attachments'], attachments],
-  [['attachments', 'cleanup'], attachmentsCleanup],
   [['attachments', 'stats'], attachmentsStats],
   [['attachments', ':id'], attachmentById],
   [['calendars'], calendars],

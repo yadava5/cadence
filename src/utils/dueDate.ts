@@ -1,13 +1,17 @@
 /**
  * Due-date display that distinguishes an *all-day date* from an *instant*.
  *
- * A task's `scheduledDate` carries both shapes. "Prepare presentation slides"
- * is due on a calendar day and arrives as `2026-08-19T00:00:00.000Z`;
- * "Review project proposal" is due at a moment and arrives as
- * `2026-08-15T17:26:43.021Z`. Formatting the first one in the viewer's local
- * zone shifted it back a day and invented a time ("August 18th, 2026 at
- * 8:00 PM" in New York), because UTC midnight is the previous evening
- * everywhere west of Greenwich.
+ * A task's `scheduledDate` carries both shapes: a calendar day arrives as
+ * UTC midnight (`2026-08-19T00:00:00.000Z`), while a task due at a moment
+ * carries a real clock time (`2026-08-15T17:26:00.000Z`). Formatting the
+ * first one in the viewer's local zone shifted it back a day and invented a
+ * time ("August 18th, 2026 at 8:00 PM" in New York), because UTC midnight is
+ * the previous evening everywhere west of Greenwich.
+ *
+ * The examples above are deliberately not tied to particular seed rows. They
+ * used to name two, and one of them stopped being an instant when the seed's
+ * captured-`now` due time was fixed (issue #22) — leaving this comment
+ * describing data the app no longer produces.
  *
  * There is no `allDay` column on a task (only `CalendarEvent` has one), so
  * all-day is inferred from the value itself: a `scheduledDate` whose clock is

@@ -13,10 +13,18 @@
   // rather than in a handler, and the front end deployed fine so the outage was
   // invisible until the API was actually called. The builder fell back to the
   // root tsconfig.json, which is solution-style (`"files": []`, only
-  // references) and states no `module` or `moduleResolution` at all, so the
-  // NodeNext settings below stopped applying and the `.js`-suffixed ESM
-  // specifiers throughout `server-handlers/` and `lib/` no longer resolved at
-  // runtime.
+  // references) and states no `module` or `moduleResolution` at all, so
+  // TypeScript used its CommonJS default and emitted `exports.default = router`
+  // into a function whose package.json says `"type": "module"`. Node rejects
+  // that combination outright, at load, before any handler runs:
+  //
+  //     ReferenceError: exports is not defined in ES module scope
+  //
+  // That error is the measured one, from building this tree both ways and
+  // importing each compiled entrypoint. An earlier version of this comment
+  // blamed `.js`-suffixed ESM specifiers failing to resolve, which sounds
+  // plausible and is not what happens — the module FORMAT is wrong, so the file
+  // never gets far enough to resolve anything.
   //
   // Nothing local catches this: the typecheck project passes, the Vite build
   // never touches `api/`, and no test loads the function the way the runtime

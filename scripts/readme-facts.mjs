@@ -687,19 +687,36 @@ function parseCoverage(out) {
 }
 
 function record() {
+  /* Vitest colourises its output depending on the environment, and the v8
+     coverage reporter puts the escape sequences BETWEEN a label and its
+     delimiter:
+
+       \x1b[33;1mAll files    \x1b[0m | \x1b[33;1m  70.17\x1b[0m | ...
+
+     `parseCoverage` matches `All files\s*\|`, and `\s*` does not match an
+     escape sequence, so --record died with "could not find the v8 reporter's
+     All files coverage row" while the row was sitting right there. That made
+     the recorded figures refreshable only where vitest happened not to
+     colourise — and --record is the prescribed remedy whenever a route or a
+     test file moves, so it has to work wherever it is run. Strip once here, at
+     the point of capture, rather than teaching every parser below about ANSI. */
+  const stripAnsi = (s) => String(s).replace(/\x1b\[[0-9;]*m/g, '');
+
   const sh = (cmd) => {
     console.log(`  → ${cmd}`);
     try {
-      return execSync(cmd, {
-        cwd: REPO,
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
+      return stripAnsi(
+        execSync(cmd, {
+          cwd: REPO,
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+      );
     } catch (e) {
       /* Vitest exits non-zero on a failing test but still prints its summary.
          We want the summary either way — a red suite still has a real count,
          and recording it is more honest than refusing to. */
-      return `${e.stdout || ''}${e.stderr || ''}`;
+      return stripAnsi(`${e.stdout || ''}${e.stderr || ''}`);
     }
   };
 

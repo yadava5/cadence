@@ -12,15 +12,15 @@
       "command": "npx vitest run --config vitest.config.ts"
     },
     "testFilesBackend": {
-      "value": 34,
+      "value": 33,
       "command": "npx vitest run --config vitest.backend.config.ts"
     },
     "testsBackend": {
-      "value": 664,
+      "value": 658,
       "command": "npx vitest run --config vitest.backend.config.ts"
     },
     "testsTotal": {
-      "value": 1436,
+      "value": 1430,
       "command": "the sum of the two runs above"
     },
     "testsSkipped": {
@@ -28,11 +28,11 @@
       "command": "the \"N skipped\" segment of both Vitest summary lines"
     },
     "coverageBackendLines": {
-      "value": 70.22,
+      "value": 70.17,
       "command": "npm run test:backend:coverage"
     },
     "coverageBackendBranches": {
-      "value": 78.97,
+      "value": 78.91,
       "command": "npm run test:backend:coverage"
     }
   },
@@ -43,7 +43,7 @@
       "skipped": 0
     },
     "backend": {
-      "passed": 664,
+      "passed": 658,
       "failed": 0,
       "skipped": 0
     },
