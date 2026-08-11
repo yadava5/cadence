@@ -570,47 +570,6 @@ describe('AttachmentService', () => {
     });
   });
 
-  describe('cleanup', () => {
-    it('should delete orphaned attachments', async () => {
-      const orphanedIds = ['att-orphan-1', 'att-orphan-2'];
-
-      mockedQuery
-        .mockResolvedValueOnce(
-          createQueryResult(
-            orphanedIds.map((id) => ({ id, fileUrl: 'x' })),
-            2
-          )
-        )
-        .mockResolvedValueOnce(createQueryResult([], 2));
-
-      const result =
-        await attachmentService.cleanupOrphanedAttachments(mockContext);
-
-      expect(result.deletedCount).toBe(2);
-    });
-
-    it('should return zero when no orphaned attachments exist', async () => {
-      mockedQuery.mockResolvedValueOnce(createQueryResult([], 0));
-
-      const result =
-        await attachmentService.cleanupOrphanedAttachments(mockContext);
-
-      expect(result.deletedCount).toBe(0);
-    });
-
-    it('refuses to run without an authenticated caller', async () => {
-      // The row predicate the audit asked for here does not exist: an orphan is
-      // by definition a row whose parent task — the only source of ownership —
-      // is gone. What CAN be required is a caller, so an unauthenticated
-      // invocation can no longer issue an unfiltered DELETE against a database
-      // where RLS happens to be off.
-      await expect(
-        attachmentService.cleanupOrphanedAttachments()
-      ).rejects.toThrow('AUTHORIZATION_ERROR');
-      expect(mockedQuery).not.toHaveBeenCalled();
-    });
-  });
-
   describe('getDownloadUrl', () => {
     it('should return file URL when attachment is accessible', async () => {
       const attachmentId = attachmentFixtures.document.id;

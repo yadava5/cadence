@@ -79,8 +79,11 @@ async function main() {
 
   // Create sample events
   const now = new Date();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrow = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + 1
+  );
 
   const nextWeek = new Date(now);
   nextWeek.setDate(nextWeek.getDate() + 7);

@@ -5,7 +5,7 @@
  * with no `authenticateJWT()` — unlike `createApiHandler`. Every handler built on
  * it that reads `req.user?.id` therefore saw `undefined` in production and
  * answered 401 unconditionally: tasks/stats, tasks/bulk, events/conflicts,
- * tags/{stats,merge,cleanup}, task-lists/stats, attachments/{stats,cleanup} — and
+ * tags/{stats,merge,cleanup}, task-lists/stats, attachments/stats — and
  * auth/logout, whose "log out from all devices" consequently never ran.
  *
  * It failed closed, so it was a capability hole rather than a breach, which is

@@ -123,7 +123,7 @@ export function createMethodHandler(
      * cors → requestId → requestLogger → rateLimit, so `req.user` was always
      * undefined and nine endpoints answered 401 unconditionally in production
      * — `tasks/stats`, `tasks/bulk`, `events/conflicts`, `tags/{stats,merge,
-     * cleanup}`, `task-lists/stats`, `attachments/{stats,cleanup}` — plus
+     * cleanup}`, `task-lists/stats`, `attachments/stats` — plus
      * `auth/logout`, whose "log out from all devices" therefore never ran.
      */
     requireAuth?: boolean;
