@@ -76,6 +76,20 @@ async function buildSchemaRoleAndPolicies(): Promise<void> {
     join(HERE, '..', 'config', 'migrations', '0002_enable_rls.sql'),
     'utf8'
   );
+  // 0006 REPLACES 0002's task_tags policy, adding the tag-ownership half that
+  // 0002 left out. Applied here in order, so what this suite exercises is the
+  // policy production will actually have — not 0002's, which the merge bug went
+  // straight through.
+  const tagOwnershipSql = readFileSync(
+    join(
+      HERE,
+      '..',
+      'config',
+      'migrations',
+      '0006_task_tags_require_tag_ownership.sql'
+    ),
+    'utf8'
+  );
 
   // Clean slate.
   await admin.query('DROP SCHEMA IF EXISTS public CASCADE');
@@ -94,6 +108,7 @@ async function buildSchemaRoleAndPolicies(): Promise<void> {
   // Build the tables/indexes/FKs, then apply the REAL RLS migration.
   await admin.query(schemaSql);
   await admin.query(rlsSql);
+  await admin.query(tagOwnershipSql);
 
   // Non-bypass, least-privilege app role (mirrors 0003 grants).
   await admin.query(
@@ -295,6 +310,69 @@ describe.skipIf(!ADMIN_URL)('RLS enforcement (real Postgres)', () => {
       query<{ c: number }>(`SELECT count(*)::int AS c FROM task_tags`)
     );
     expect(bCount.rows[0].c).toBe(1);
+  });
+
+  // --------------------------------------------------------------------------
+  // 0006: task_tags is scoped by the TAG's owner as well as the task's.
+  //
+  // 0002 only asked "is the task mine?". Because `tags` became per-user in
+  // 0001, that left the tag id — an attacker-supplied cuid on
+  // POST /api/tags/merge — completely unchecked, and the database happily let
+  // one tenant repoint their own task_tags rows at another tenant's tag. The
+  // damage lands on the ATTACKER'S rows, which is why it went unnoticed: their
+  // labels vanish, and when the victim deletes that tag,
+  // `task_tags_tagId_fkey ON DELETE CASCADE` deletes the attacker's rows too.
+  // --------------------------------------------------------------------------
+  it('repointing task_tags at ANOTHER tenant’s tag is refused by the policy', async () => {
+    // A owns task_a and tag_a; tag_b belongs to B. This is exactly the write
+    // TagService.mergeTags used to issue.
+    await expect(
+      runWithRls(USER_A, () =>
+        query(
+          `UPDATE task_tags SET "tagId" = 'tag_b' WHERE "taskId" = 'task_a'`
+        )
+      )
+    ).rejects.toThrow();
+
+    // And the row is unchanged.
+    const still = await runWithRls(USER_A, () =>
+      query<{ tagId: string }>(`SELECT "tagId" FROM task_tags`)
+    );
+    expect(still.rows.map((r) => r.tagId)).toEqual(['tag_a']);
+  });
+
+  it('INSERTing a task_tag with another tenant’s tag is refused by the policy', async () => {
+    await expect(
+      runWithRls(USER_A, () =>
+        query(
+          `INSERT INTO task_tags ("taskId","tagId",value,"displayText","iconName")
+           VALUES ('task_a','tag_b','x','X','flame')`
+        )
+      )
+    ).rejects.toThrow();
+  });
+
+  it('the caller’s OWN task/tag pairing still works', async () => {
+    // Positive control: a policy that refuses everything would satisfy both
+    // tests above while breaking tagging entirely. Insert a second tag for A
+    // and pair it, then clean up.
+    await runWithRls(USER_A, async () => {
+      await query(
+        `INSERT INTO tags (id, name, type, color, "userId") VALUES ('tag_a2','later','LABEL',NULL,$1)`,
+        [USER_A]
+      );
+      await query(
+        `INSERT INTO task_tags ("taskId","tagId",value,"displayText","iconName")
+         VALUES ('task_a','tag_a2','later','Later','clock')`
+      );
+      const pairs = await query<{ tagId: string }>(
+        `SELECT "tagId" FROM task_tags ORDER BY "tagId"`
+      );
+      expect(pairs.rows.map((r) => r.tagId)).toEqual(['tag_a', 'tag_a2']);
+
+      await query(`DELETE FROM task_tags WHERE "tagId" = 'tag_a2'`);
+      await query(`DELETE FROM tags WHERE id = 'tag_a2'`);
+    });
   });
 
   // --------------------------------------------------------------------------

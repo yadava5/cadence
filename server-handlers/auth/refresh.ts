@@ -66,8 +66,18 @@ export default createMethodHandler(
       } catch (error) {
         const err = error as Error;
 
+        // Every way a refresh token can be refused is a 401, not a 500. The
+        // last two used to fall through to the generic 500 below and nobody
+        // noticed, because revocation lived in a per-process Set that was
+        // almost always empty. Now that it is a durable row (migration 0005)
+        // REFRESH_TOKEN_REVOKED is the ORDINARY outcome of "this user logged
+        // out", and REFRESH_TOKEN_NOT_FOUND is the ordinary outcome of a token
+        // whose row was rotated away — answering 500 to either would tell the
+        // client "server broken, retry" instead of "sign in again".
         if (
           err.message === 'REFRESH_TOKEN_NOT_FOUND' ||
+          err.message === 'REFRESH_TOKEN_REVOKED' ||
+          err.message === 'TOKEN_USER_MISMATCH' ||
           err.message === 'TOKEN_EXPIRED' ||
           err.message === 'TOKEN_INVALID'
         ) {
@@ -105,5 +115,8 @@ export default createMethodHandler(
       }
     },
   },
-  { rateLimit: 'auth' }
+  // NOT the credential-stuffing bucket: a live session refreshes on its own
+  // schedule and after any 401, and a 429 here makes `authStore` clear auth and
+  // force a re-login that the login limiter then blocks too.
+  { rateLimit: 'authRefresh' }
 );

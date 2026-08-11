@@ -162,6 +162,45 @@ export function validateParams(schema: z.ZodSchema) {
 }
 
 /**
+ * A request field that must parse to a real instant.
+ *
+ * The failure this closes: no data route validated anything, so
+ * `GET /api/events?start=garbage` ran `new Date('garbage')`, handed an Invalid
+ * Date to pg, and the driver threw `RangeError: Invalid time value` — a 500 for
+ * what is plainly a bad request. Same shape in `events/conflicts` and
+ * `tasks/index`.
+ *
+ * `new Date(...)` rather than a format regex, because that is exactly what the
+ * handlers do downstream: whatever this accepts, they can parse. A `Date` is
+ * accepted as well as a string so the same schema can validate a body that has
+ * already been through a JSON reviver.
+ *
+ * `commonSchemas.dateRange` below is NOT a substitute: it only knows
+ * `startDate`/`endDate`, and the events route accepts `start`/`end` too — the
+ * pair that actually 500s.
+ */
+export function dateTimeField(field: string) {
+  return z
+    .union([z.string(), z.date()])
+    .refine((value) => !Number.isNaN(new Date(value).getTime()), {
+      message: `${field} must be a valid date-time (ISO 8601)`,
+    });
+}
+
+/**
+ * A query parameter that must be a non-negative integer, as a string.
+ *
+ * Deliberately does not bound the range: `tasks/index.ts` already clamps `page`
+ * and `limit` (`MAX_PAGE_LIMIT`, `MAX_UNPAGINATED_LIMIT`), and turning a
+ * silently-clamped `?limit=99999` into a 400 would be a behaviour change no
+ * caller asked for. What this rejects is `?limit=abc`, which is not a number at
+ * all.
+ */
+export function integerQueryField(field: string) {
+  return z.string().regex(/^\d+$/, `${field} must be a non-negative integer`);
+}
+
+/**
  * Common validation schemas
  */
 export const commonSchemas = {

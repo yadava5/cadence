@@ -49,6 +49,50 @@ additionally binds the owner. `cadence_app` is a non-owner with `NOBYPASSRLS`,
 so it is bound the moment RLS goes on. Hence: no `FORCE`, and a permissive
 policy that hands `cadence_app` back exactly what `GRANT` already gave it.
 
+## What is written but NOT yet run
+
+These exist in `lib/config/migrations/` and have **not** been applied to
+production. There is no migration runner in this repository — every file above
+was run by hand, and so must these be. The rows below are in the order they
+should be applied; there is deliberately no step number, because the table above
+numbers **cutover actions** rather than files (its step 3 is `0002`, step 5 is
+`0004`) and a "step 8" sitting next to `0008` would invite exactly the wrong
+inference.
+
+| file                                       | what it does                                                                               | when                                                                   |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| `0005_create_refresh_tokens.sql`           | durable `refresh_tokens` (token **hash**, user, family, expiry, revocation)                | **BEFORE** the deploy that contains it — see the warning below         |
+| `0006_task_tags_require_tag_ownership.sql` | replaces `0002`'s `task_tags` policy so the **tag** must also belong to the caller         | any time; run the pre-flight query in its header first                 |
+| `0008_schema_columns_from_runtime_ddl.sql` | declares `tasks.status` and `attachments."thumbnailUrl"`, which the app used to `ALTER` in | any time; a no-op against production, where both columns already exist |
+
+**`0005` must land before the code does, and it signs everyone out once.**
+Every other migration here could follow its deploy. This one cannot:
+`RefreshTokenService.validateRefreshToken` fails closed against the table, so if
+the code ships first every refresh 401s until the table exists. And because it
+fails closed, tokens minted before the table existed have no row — so applying
+it ends every live session, once. That is the cost of making revocation real,
+not a defect in it; the alternative (trusting any token issued before some
+cutover instant) is the hole the migration closes, reopened with a timestamp on
+it.
+
+`0005` also depends on `0003`: it `GRANT`s to `cadence_app` and creates a policy
+`FOR ALL TO cadence_app`, so the role must exist first. Note the shape — `ENABLE`
+without `FORCE`, one permissive policy — is `0004`'s, not `0002`'s, and
+deliberately so. `refresh_tokens` is an identity table: `POST /api/auth/login`
+and `POST /api/auth/refresh` are not behind `authenticateJWT`, so they run with
+no `app.user_id` bound, on a pool with no GUC wiring. A `0002`-style tenant
+policy there rejects the login INSERT on `WITH CHECK` and returns zero rows on
+every refresh — nobody could sign in. Its header carries the `SET LOCAL ROLE
+cadence_app` probe that demonstrates this.
+
+**Local development needs `0005` too.** `npm run dev:api` points at
+`react_calendar_dev`; login now writes to `refresh_tokens`, so a developer
+database without the table (and without the `cadence_app` role that `0005`'s
+`GRANT` and policy name) will fail at sign-in.
+
+`0007_add_performance_indexes.sql` is concurrent work by another author and is
+tracked separately; the numbering above skips it for that reason.
+
 ## The proof that the policies actually scope
 
 Run as `cadence_app` **through the production Supavisor pooler**, not against a

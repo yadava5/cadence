@@ -14,7 +14,7 @@ export * from './auth.js';
 
 // Middleware composition utilities
 import type { VercelResponse } from '@vercel/node';
-import type { AuthenticatedRequest, Middleware } from '../types/api';
+import type { AuthenticatedRequest, Middleware } from '../types/api.js';
 
 /**
  * Compose multiple middleware functions

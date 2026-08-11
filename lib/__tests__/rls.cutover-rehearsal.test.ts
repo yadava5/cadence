@@ -108,6 +108,24 @@ describe.skipIf(!ADMIN_URL)(
       await admin.query(schemaSql);
       // The real migration, not a paraphrase of it.
       await admin.query(rlsSql);
+      // 0006 replaces 0002's `task_tags` policy with one that also requires the
+      // TAG to belong to the caller. It belongs in THIS suite specifically:
+      // this is the one that asks "does the product still work under these
+      // policies", and 0006 is a tightening that `TaskService.create` writes
+      // through on every tagged task. A policy that refused those writes would
+      // pass rls.postgres.test.ts and break task creation in production.
+      await admin.query(
+        readFileSync(
+          join(
+            HERE,
+            '..',
+            'config',
+            'migrations',
+            '0006_task_tags_require_tag_ownership.sql'
+          ),
+          'utf8'
+        )
+      );
 
       await admin.query(
         `CREATE ROLE ${APP_ROLE} LOGIN PASSWORD '${APP_PW}' NOSUPERUSER NOBYPASSRLS`

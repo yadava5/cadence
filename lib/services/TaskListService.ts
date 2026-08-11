@@ -234,7 +234,7 @@ export class TaskListService extends BaseService<
     return entities.map((e) => ({
       ...e,
       _count: { tasks: map.get(e.id)?.total ?? 0 },
-      tasks: undefined,
+      tasks: undefined as TaskListEntity['tasks'],
     }));
   }
 
@@ -557,9 +557,7 @@ export class TaskListService extends BaseService<
         );
       }
 
-      const byId = new Map(
-        res.rows.map((row: { id: string }) => [row.id, row])
-      );
+      const byId = new Map(res.rows.map((row) => [row.id, row]));
       const results = taskListIds
         .map((id) => byId.get(id))
         .filter(Boolean)
