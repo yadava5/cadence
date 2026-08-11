@@ -1420,7 +1420,7 @@ const PIPELINE = [
 const STACK = [
   {
     icon: ServerCog,
-    title: '37 handlers, one function',
+    title: '36 handlers, one function',
     body: 'Every API handler ships inside a single catch-all dispatcher that routes by URL path — byte-for-byte the same handlers, no framework routing assumptions.',
   },
   {

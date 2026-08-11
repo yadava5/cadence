@@ -42,7 +42,7 @@ Under the hood it pairs a React 19 frontend with a serverless PostgreSQL backend
 ### Why it's interesting
 
 - **Natural-language task entry** — a four-parser pipeline (dates → hashtags → priority → named entities) with confidence-weighted conflict resolution over overlapping spans.
-- **One function, full API** — 37 route handlers are dispatched by a single catch-all serverless function, keeping the whole backend inside Vercel's Hobby-tier 12-function limit without collapsing any handler logic.
+- **One function, full API** — 36 route handlers are dispatched by a single catch-all serverless function, keeping the whole backend inside Vercel's Hobby-tier 12-function limit without collapsing any handler logic.
 - **End-to-end type safety** — types and Zod validation schemas are shared between the client and server, so the contract is enforced in one place.
 - **Real scheduling logic** — multi-calendar visibility, recurring events (rrule), and drag-and-drop.
 - **Serverless-first data layer** — pure SQL over `pg` with connection pooling, composite indexes, and an in-memory TTL cache tuned for cold starts.
@@ -114,7 +114,7 @@ flowchart TB
     end
 
     subgraph API["API (single catch-all Vercel function)"]
-        Dispatch[Path Dispatcher<br/>37 routes]
+        Dispatch[Path Dispatcher<br/>36 routes]
         Middleware[Middleware Pipeline]
     end
 
@@ -146,7 +146,7 @@ flowchart TB
 
 Vercel's Hobby tier caps a deployment at 12 serverless functions. Rather than merge or drop endpoints, Cadence keeps every handler intact under `server-handlers/` and wires them into **one** entry point, `api/index.ts`. That dispatcher:
 
-- matches the request path against a route table of **37 handlers** (health, auth, account, calendars, events, tags, task-lists, tasks, attachments, uploads, Google integration),
+- matches the request path against a route table of **36 handlers** (health, auth, account, calendars, events, tags, task-lists, tasks, attachments, uploads, Google integration),
 - restores the dynamic-segment params (`req.query.id`) that Vercel's filesystem router would normally inject for the 6 `[id]` routes,
 - and delegates to the original handler byte-for-byte — so the whole REST surface ships as a single function.
 
@@ -326,7 +326,7 @@ rather than being invalidated on write.
 
 ## Testing
 
-Cadence ships with a broad automated test suite. The two Vitest projects run **103 test files — 69 frontend (`vitest.config.ts`) and 34 backend (`vitest.backend.config.ts`) — for 1,436 tests: 772 frontend and 664 backend, with 0 skipped.** Those are the figures the two root configs actually execute, taken from their run summaries. The tree holds 113 `*.test.ts(x)` files on disk; the other 10 live in `packages/backend` and `packages/shared`, which the root configs do not glob — they run under their own workspace-level Vitest configs (`npm test`, which fans out across workspaces). The 13 Playwright specs under `e2e/` run separately again. So 1,436 is the two-root-config total, not a whole-repo total.
+Cadence ships with a broad automated test suite. The two Vitest projects run **102 test files — 69 frontend (`vitest.config.ts`) and 33 backend (`vitest.backend.config.ts`) — for 1,430 tests: 772 frontend and 658 backend, with 0 skipped.** Those are the figures the two root configs actually execute, taken from their run summaries. The tree holds 112 `*.test.ts(x)` files on disk; the other 10 live in `packages/backend` and `packages/shared`, which the root configs do not glob — they run under their own workspace-level Vitest configs (`npm test`, which fans out across workspaces). The 13 Playwright specs under `e2e/` run separately again. So 1,430 is the two-root-config total, not a whole-repo total.
 
 The 12 that used to be skipped are the Postgres row-level-security module. They needed a live database from an environment variable that no workflow set, so they had never executed — anywhere, once. They now start their own `postgres:16` via testcontainers when `RLS_TEST_PG_ADMIN_URL` is absent, which means the isolation policies are _demonstrated_ rather than merely written. CI additionally asserts that the suite ran and that nothing was skipped, because a skipped security test and a passing one produce the same green tick.
 
@@ -336,7 +336,7 @@ Coverage, measured rather than asserted:
 
 | Suite    | Tests |       Line |    Branch |
 | -------- | ----: | ---------: | --------: |
-| Backend  |   664 | **70.22%** |    78.97% |
+| Backend  |   658 | **70.17%** |    78.91% |
 | Frontend |   772 |  see below | see below |
 
 These figures were recorded on 2026-08-11 by `npm run readme:record`, which runs both
@@ -458,7 +458,7 @@ cadence/
 │   └── services/api/       # API client layer
 │
 ├── api/                    # Single catch-all serverless entry (index.ts)
-├── server-handlers/        # 37 route handlers dispatched by api/index.ts
+├── server-handlers/        # 36 route handlers dispatched by api/index.ts
 │
 ├── lib/                    # Backend utilities
 │   ├── services/           # Business logic layer
@@ -518,14 +518,14 @@ Being precise about this is the point.
 
 Every figure above ends in a file you can open or a command you can run.
 
-**The test counts.** 1,436 is exactly two commands, one per root Vitest config:
+**The test counts.** 1,430 is exactly two commands, one per root Vitest config:
 
 ```bash
 npm run test:frontend:run   # vitest.config.ts          → 69 files, 772 tests
-npm run test:backend:run    # vitest.backend.config.ts  →  34 files, 664 tests
+npm run test:backend:run    # vitest.backend.config.ts  →  33 files, 658 tests
 ```
 
-The `include` globs in those two files are the whole explanation for why 1,436 is not the number of tests in the repository. `vitest.config.ts` takes `src/**/*.test.ts(x)` and excludes `packages/`, `api/`, `lib/` and `test/`; `vitest.backend.config.ts` takes `api/`, `lib/` and `server-handlers/` and excludes `src/`. Neither reaches `packages/backend` or `packages/shared` — those run under `npm run test:all`, which fans `test:run` across the workspaces first. The 13 Playwright specs in `e2e/` run under `npm run test:e2e`.
+The `include` globs in those two files are the whole explanation for why 1,430 is not the number of tests in the repository. `vitest.config.ts` takes `src/**/*.test.ts(x)` and excludes `packages/`, `api/`, `lib/` and `test/`; `vitest.backend.config.ts` takes `api/`, `lib/` and `server-handlers/` and excludes `src/`. Neither reaches `packages/backend` or `packages/shared` — those run under `npm run test:all`, which fans `test:run` across the workspaces first. The 13 Playwright specs in `e2e/` run under `npm run test:e2e`.
 
 **Two caveats on that sentence, both worth knowing before you trust it.** First,
 `npm run test:all` **exits 1 on a clean checkout**: `packages/backend`'s
@@ -542,7 +542,7 @@ CI, which is not the same as tested.
 npm run test:backend:coverage   # vitest run --config vitest.backend.config.ts --coverage
 ```
 
-The v8 provider and its `include: ['api/**/*.ts', 'lib/**/*.ts']` are declared in `vitest.backend.config.ts`, so 70.22% is scoped to exactly those two trees and nothing else. The frontend row is the same kind of pass over `vitest.config.ts`; there is deliberately no script and no gate for it, for the reason given in [Testing](#testing).
+The v8 provider and its `include: ['api/**/*.ts', 'lib/**/*.ts']` are declared in `vitest.backend.config.ts`, so 70.17% is scoped to exactly those two trees and nothing else. The frontend row is the same kind of pass over `vitest.config.ts`; there is deliberately no script and no gate for it, for the reason given in [Testing](#testing).
 
 **The database isolation claims.**
 
