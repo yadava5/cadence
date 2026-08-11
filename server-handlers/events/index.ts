@@ -14,38 +14,7 @@ import type { VercelResponse } from '@vercel/node';
 import type {
   CreateEventDTO,
   EventFilters,
-} from '../../lib/services/EventService.js';
-import { z } from 'zod';
-import { dateTimeField } from '../../lib/middleware/validation.js';
-
-/**
- * Gate, not parser — the handler below still reads `req.query`.
- *
- * Both spellings of the range are covered on purpose. The handler accepts
- * `start`/`end` *and* the legacy `startDate`/`endDate`, and it is the first
- * pair that reaches `new Date()` unguarded at line 51.
- */
-const eventsQuerySchema = z.object({
-  calendarId: z.string().optional(),
-  search: z.string().optional(),
-  upcoming: z.string().optional(),
-  start: dateTimeField('start').optional(),
-  end: dateTimeField('end').optional(),
-  startDate: dateTimeField('startDate').optional(),
-  endDate: dateTimeField('endDate').optional(),
-});
-
-/**
- * Only the fields whose *format* can break a query are constrained; the
- * required-field errors stay in the handler, where they already produce
- * field-named 400s. A missing body is now a 400 rather than the
- * `TypeError: Cannot read properties of undefined` → 500 it used to be.
- */
-const createEventBodySchema = z.object({
-  title: z.string().optional(),
-  start: dateTimeField('start').optional(),
-  end: dateTimeField('end').optional(),
-});
+} from '../../lib/services/EventService';
 
 export default createCrudHandler({
   get: async (req: AuthenticatedRequest, res: VercelResponse) => {
@@ -202,7 +171,7 @@ export default createCrudHandler({
           const calendars = await calendarService.findAll(
             {
               search: body.calendarName,
-            } as unknown as import('../../lib/services/CalendarService.js').CalendarFilters,
+            } as unknown as import('../../lib/services/CalendarService').CalendarFilters,
             {
               userId,
               requestId: req.headers['x-request-id'] as string,
@@ -259,8 +228,4 @@ export default createCrudHandler({
 
   requireAuth: true,
   rateLimit: 'api',
-  validate: {
-    get: { query: eventsQuerySchema },
-    post: { body: createEventBodySchema },
-  },
 });

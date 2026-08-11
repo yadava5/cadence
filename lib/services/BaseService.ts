@@ -59,17 +59,8 @@ export interface BaseServiceConfig {
  */
 export const MAX_LIST_ROWS = 1000;
 
-/**
- * `TEntity` is constrained to `{ id: string }`, not to the full `BaseEntity`.
- *
- * `TagEntity` is declared as `Omit<BaseEntity, 'createdAt' | 'updatedAt'>` —
- * the tags table genuinely has no timestamp columns — so `TagService extends
- * BaseService<TagEntity, ...>` does not satisfy a `BaseEntity` constraint.
- * Nothing in this class reads `createdAt`/`updatedAt` off `TEntity`; only `id`
- * is used, so the narrower constraint is the accurate one.
- */
 export abstract class BaseService<
-  TEntity extends Pick<BaseEntity, 'id'> = BaseEntity,
+  TEntity extends BaseEntity = BaseEntity,
   TCreateDTO = Partial<Omit<TEntity, keyof BaseEntity>>,
   TUpdateDTO = Partial<Omit<TEntity, keyof BaseEntity>>,
   TFilters extends object = Record<string, unknown>,

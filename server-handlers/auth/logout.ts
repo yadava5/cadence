@@ -37,25 +37,12 @@ export default createMethodHandler(
 
         const { refreshToken, logoutAll } = validationResult.data;
 
-        // AWAITED, both branches. Revocation is a database write now
-        // (packages/backend/.../RefreshTokenService + migration 0005); firing it
-        // and returning would let the response claim a revocation that had not
-        // happened yet — and on a serverless instance the invocation can be
-        // frozen the moment the response is sent, so it might never happen.
         if (logoutAll && req.user) {
-          // Every device. This used to iterate a per-process Map that is empty
-          // on a cold instance: it invalidated nothing while the response below
-          // said "Logged out from all devices".
-          await refreshTokenService.invalidateAllUserTokens(req.user.id);
+          // Invalidate all refresh tokens for this user
+          refreshTokenService.invalidateAllUserTokens(req.user.id);
         } else {
-          // Only this token — and only if it is the CALLER'S token. The route
-          // requires auth, so `req.user` is the verified caller; passing the id
-          // means one user cannot revoke another user's session by posting a
-          // refresh token they got hold of.
-          await refreshTokenService.invalidateRefreshToken(
-            refreshToken,
-            req.user?.id
-          );
+          // Invalidate only this refresh token
+          refreshTokenService.invalidateRefreshToken(refreshToken);
         }
 
         return res.status(200).json({

@@ -10,7 +10,7 @@ import type {
   CreateTagDTO,
   TagFilters,
   TagType,
-} from '../../lib/services/TagService.js';
+} from '../../lib/services/TagService';
 import {
   UnauthorizedError,
   ValidationError,

@@ -88,97 +88,6 @@ export interface EventConflict {
 }
 
 /**
- * Recurrence rule limits, enforced server-side.
- *
- * ## What actually hangs a calendar
- *
- * The old validator checked that each part's *key* was in an allowlist and
- * never looked at a single *value*, so `RRULE:FREQ=SECONDLY` was accepted and
- * stored. The client expands with `rule.between(rangeStart, rangeEnd, true)`
- * (`src/utils/recurrence.ts`), which walks occurrences from DTSTART forward, so
- * a SECONDLY rule is ~2.6 million Date objects for a single month view — for
- * one POST. That is the whole hang, and the FREQ allowlist is the whole fix.
- *
- * ## Why an unbounded rule is NOT rejected here
- *
- * Because expansion is window-bounded, occurrence *density* is what matters and
- * total count is not: unbounded `FREQ=WEEKLY` costs ~1000 iterations over 20
- * years. Rejecting rules with neither COUNT nor UNTIL would also break shipped,
- * working behaviour — `ends: 'never'` is the DEFAULT in the recurrence editor
- * (`src/components/dialogs/RecurrenceSection.tsx:56`,
- * `EventCreationDialog.tsx:620`) and `generateRRule` emits COUNT/UNTIL only for
- * 'after'/'on', so "Never ends" would start returning 400. Two committed tests
- * (`EventService.test.ts:377` and `:891`) also pin unbounded weekly rules as
- * valid.
- *
- * ## The ceiling
- *
- * 1000 occurrences, applied to an explicit COUNT. At the coarsest useful
- * granularity that is a daily event for 2.7 years or a weekly one for 19 —
- * past any real calendar entry, and it matches `MAX_LIST_ROWS`, the ceiling
- * already used for list reads. It is a sanity bound on a number a client sends,
- * not the DoS control; note that the editor's occurrence input has `min={1}`
- * and no max, so a user can type 100000 today and gets a named 400 instead of a
- * stored rule.
- *
- * `BYSETPOS` is in the key allowlist and was not before. `generateRRule` emits
- * it for monthly "2nd Tuesday" and yearly nth-weekday rules
- * (`src/utils/recurrence.ts:78,85`), so those were rejected by the API in
- * production — a live bug, independent of everything above.
- */
-const RRULE_ALLOWED_KEYS = new Set([
-  'FREQ',
-  'INTERVAL',
-  'COUNT',
-  'UNTIL',
-  'BYDAY',
-  'BYMONTH',
-  'BYMONTHDAY',
-  'BYSETPOS',
-  'WKST',
-]);
-const RRULE_ALLOWED_FREQUENCIES = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'];
-const MAX_RRULE_COUNT = 1000;
-const MAX_RRULE_INTERVAL = 1000;
-
-/**
- * Parse an RFC 5545 UNTIL value (`19970902T090000Z` or `19970902`).
- *
- * `new Date()` cannot read this format — `new Date('20241231T235959Z')` is an
- * Invalid Date — which is why it is parsed by hand. The round-trip check
- * rejects impossible dates that `Date.UTC` would silently roll over
- * (`20241340` becoming 2025-02-09).
- */
-function parseRRuleUntil(value: string): Date | null {
-  const match = /^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})Z?)?$/.exec(
-    value
-  );
-  if (!match) return null;
-
-  const [, year, month, day, hour = '00', minute = '00', second = '00'] = match;
-  const parsed = new Date(
-    Date.UTC(
-      Number(year),
-      Number(month) - 1,
-      Number(day),
-      Number(hour),
-      Number(minute),
-      Number(second)
-    )
-  );
-
-  if (Number.isNaN(parsed.getTime())) return null;
-  if (
-    parsed.getUTCFullYear() !== Number(year) ||
-    parsed.getUTCMonth() !== Number(month) - 1 ||
-    parsed.getUTCDate() !== Number(day)
-  ) {
-    return null;
-  }
-  return parsed;
-}
-
-/**
  * EventService - Handles all event-related operations
  */
 export class EventService extends BaseService<
@@ -419,12 +328,9 @@ export class EventService extends BaseService<
       }
     }
 
-    // Validate recurrence format if provided
-    if (data.recurrence) {
-      const problem = this.validateRRule(data.recurrence);
-      if (problem) {
-        throw new Error(`VALIDATION_ERROR: Recurrence rule ${problem}`);
-      }
+    // Validate recurrence format if provided (basic validation)
+    if (data.recurrence && !this.isValidRRule(data.recurrence)) {
+      throw new Error('VALIDATION_ERROR: Invalid recurrence rule format');
     }
   }
 
@@ -487,11 +393,8 @@ export class EventService extends BaseService<
     }
 
     // Validate recurrence format if provided
-    if (data.recurrence) {
-      const problem = this.validateRRule(data.recurrence);
-      if (problem) {
-        throw new Error(`VALIDATION_ERROR: Recurrence rule ${problem}`);
-      }
+    if (data.recurrence && !this.isValidRRule(data.recurrence)) {
+      throw new Error('VALIDATION_ERROR: Invalid recurrence rule format');
     }
   }
 
@@ -819,92 +722,35 @@ export class EventService extends BaseService<
   }
 
   /**
-   * RRULE validation. Returns a human-readable problem, or null when valid.
-   *
-   * The predecessor inspected only the KEY of each `KEY=VALUE` part, so every
-   * value was unchecked: `FREQ=SECONDLY` passed, `INTERVAL=abc` passed,
-   * `COUNT=-5` passed. See the block comment above `RRULE_ALLOWED_KEYS` for
-   * what is bounded here and what deliberately is not.
+   * Basic RRULE validation
    */
-  validateRRule(rrule: string): string | null {
+  private isValidRRule(rrule: string): boolean {
+    // Basic validation - check if it starts with RRULE and contains valid keywords
     if (!rrule.startsWith('RRULE:')) {
-      return 'must start with "RRULE:"';
+      return false;
     }
 
-    const body = rrule.slice('RRULE:'.length);
-    if (!body.trim()) {
-      return 'has no parts';
-    }
+    // Check for basic RRULE components
+    const validKeywords = [
+      'FREQ',
+      'INTERVAL',
+      'COUNT',
+      'UNTIL',
+      'BYDAY',
+      'BYMONTH',
+      'BYMONTHDAY',
+    ];
+    const ruleBody = rrule.substring(6); // Remove 'RRULE:'
 
-    const parts = new Map<string, string>();
-    for (const segment of body.split(';')) {
-      if (!segment) continue;
-
-      const separator = segment.indexOf('=');
-      if (separator < 1) {
-        return `has a malformed part "${segment}"`;
-      }
-
-      const key = segment.slice(0, separator).toUpperCase();
-      // Value keeps its original case so it can be quoted back verbatim in the
-      // message; the two places that compare it uppercase at the comparison.
-      const value = segment.slice(separator + 1);
-
-      if (!RRULE_ALLOWED_KEYS.has(key)) {
-        return `has an unsupported part "${key}"`;
-      }
-      if (parts.has(key)) {
-        return `repeats "${key}"`;
-      }
-      if (!value) {
-        return `has an empty value for "${key}"`;
-      }
-      parts.set(key, value);
-    }
-
-    const freq = parts.get('FREQ')?.toUpperCase();
-    if (!freq) {
-      return 'is missing FREQ';
-    }
-    if (!RRULE_ALLOWED_FREQUENCIES.includes(freq)) {
-      return `has FREQ=${freq}; only ${RRULE_ALLOWED_FREQUENCIES.join(', ')} are supported`;
-    }
-
-    const interval = parts.get('INTERVAL');
-    if (interval !== undefined) {
-      if (!/^\d+$/.test(interval)) {
-        return `has a non-numeric INTERVAL "${interval}"`;
-      }
-      const parsed = Number(interval);
-      if (parsed < 1 || parsed > MAX_RRULE_INTERVAL) {
-        return `has INTERVAL=${parsed}; must be between 1 and ${MAX_RRULE_INTERVAL}`;
+    // Split by semicolon and validate each part
+    const parts = ruleBody.split(';');
+    for (const part of parts) {
+      const [key] = part.split('=');
+      if (!validKeywords.includes(key)) {
+        return false;
       }
     }
 
-    const count = parts.get('COUNT');
-    const until = parts.get('UNTIL');
-
-    if (count !== undefined && until !== undefined) {
-      return 'sets both COUNT and UNTIL; RFC 5545 allows at most one';
-    }
-
-    if (count !== undefined) {
-      if (!/^\d+$/.test(count)) {
-        return `has a non-numeric COUNT "${count}"`;
-      }
-      const parsed = Number(count);
-      if (parsed < 1) {
-        return 'has COUNT=0; a rule must have at least one occurrence';
-      }
-      if (parsed > MAX_RRULE_COUNT) {
-        return `has COUNT=${parsed}; the maximum is ${MAX_RRULE_COUNT}`;
-      }
-    }
-
-    if (until !== undefined && parseRRuleUntil(until.toUpperCase()) === null) {
-      return `has an unparseable UNTIL "${until}"`;
-    }
-
-    return null;
+    return true;
   }
 }

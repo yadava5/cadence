@@ -7,14 +7,6 @@ import {
   isBefore,
   startOfDay,
 } from 'date-fns';
-import {
-  calendarDayNumber,
-  calendarWeekdayName,
-  formatCalendarDate,
-  getCalendarDate,
-  getTodayCalendarDate,
-  isAllDayDate,
-} from './dueDate';
 
 /**
  * Date grouping utilities for tasks and events
@@ -25,55 +17,15 @@ export interface GroupedItems<T> {
   [key: string]: T[];
 }
 
-export interface DayKeyOptions {
-  /**
-   * Treat an exactly-midnight value as a whole calendar day and group it by
-   * its calendar parts instead of the viewer's local clock. Opt-in: task due
-   * dates need it (a UTC-midnight due date otherwise lands a day early, and
-   * "today" reads as "Overdue", west of GMT), calendar events do not — they
-   * carry their own `allDay` flag and are unaffected by this module's change.
-   */
-  allDayAware?: boolean;
-}
-
-/**
- * Day key for an all-day value, computed from calendar parts only — same
- * vocabulary as the local-clock path below.
- */
-const getAllDayKey = (date: Date): string => {
-  const parts = getCalendarDate(date);
-  const diff =
-    calendarDayNumber(parts) - calendarDayNumber(getTodayCalendarDate());
-
-  if (diff < 0) return 'Overdue';
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Tomorrow';
-
-  // Same Monday-start week as today? (mirrors isThisWeek({ weekStartsOn: 1 }))
-  const now = new Date();
-  const daysSinceMonday = (now.getDay() + 6) % 7;
-  if (diff <= 6 - daysSinceMonday) return calendarWeekdayName(parts);
-
-  return formatCalendarDate(parts, 'short'); // Jan 15, etc.
-};
-
 /**
  * Determine the appropriate day key for an item based on its date
  */
-export const getDayKey = (
-  date: Date | null,
-  options: DayKeyOptions = {}
-): string => {
+export const getDayKey = (date: Date | null): string => {
   if (!date) {
     return 'No Due Date';
   }
 
   const itemDate = new Date(date);
-
-  if (options.allDayAware && isAllDayDate(itemDate)) {
-    return getAllDayKey(itemDate);
-  }
-
   const now = new Date();
 
   if (isBefore(itemDate, startOfDay(now))) {
@@ -94,14 +46,13 @@ export const getDayKey = (
  */
 export const groupItemsByDate = <T>(
   items: T[],
-  getDateFn: (item: T) => Date | null,
-  options: DayKeyOptions = {}
+  getDateFn: (item: T) => Date | null
 ): GroupedItems<T> => {
   const groups: GroupedItems<T> = {};
 
   items.forEach((item) => {
     const itemDate = getDateFn(item);
-    const dayKey = getDayKey(itemDate, options);
+    const dayKey = getDayKey(itemDate);
 
     if (!groups[dayKey]) {
       groups[dayKey] = [];

@@ -323,18 +323,6 @@ export function GeneralSettings() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
 
-  // The demo account is shared, and its credentials are printed on the landing
-  // page, so anyone signed in as it is holding a borrowed key rather than their
-  // own. DELETE /api/account refuses it server side; this only stops the UI
-  // from walking someone through a confirmation that is going to be rejected.
-  //
-  // Normalised the same way the server guard normalises (lib/config/demo.ts):
-  // login matches on `LOWER(email) = LOWER($1)`, so this address arrives from
-  // the row in whatever case it was stored in. A strict `===` here would offer
-  // an enabled Delete button that the server then refuses, which is precisely
-  // the dead end this check exists to prevent.
-  const isDemoAccount = user?.email?.trim().toLowerCase() === DEMO_EMAIL;
-
   const { data: events = [] } = useAllEvents();
   const { data: tasks = [] } = useAllTasks();
 
@@ -738,44 +726,20 @@ export function GeneralSettings() {
             </div>
           </div>
 
-          <div
-            className={
-              isDemoAccount
-                ? 'flex flex-wrap items-center justify-between gap-3 p-4 border rounded-lg'
-                : 'flex flex-wrap items-center justify-between gap-3 p-4 border border-destructive/20 rounded-lg bg-destructive/5'
-            }
-          >
+          <div className="flex flex-wrap items-center justify-between gap-3 p-4 border border-destructive/20 rounded-lg bg-destructive/5">
             <div className="min-w-0">
-              <h4
-                className={
-                  isDemoAccount ? 'font-medium' : 'font-medium text-destructive'
-                }
-              >
-                Delete Account
-              </h4>
+              <h4 className="font-medium text-destructive">Delete Account</h4>
               <p className="text-sm text-muted-foreground">
-                {isDemoAccount
-                  ? 'This is the shared demo account, so it cannot be deleted. Its credentials are published for anyone to try Cadence with. Register your own account to get one you can delete.'
-                  : 'Permanently delete your account and all data'}
+                Permanently delete your account and all data
               </p>
             </div>
             <Button
               variant="outline"
-              disabled={isDemoAccount}
-              title={
-                isDemoAccount
-                  ? 'The shared demo account cannot be deleted'
-                  : undefined
-              }
               onClick={() => {
                 setDeleteConfirmText('');
                 setDeleteDialogOpen(true);
               }}
-              className={
-                isDemoAccount
-                  ? 'shrink-0'
-                  : 'border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground shrink-0'
-              }
+              className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground shrink-0"
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete

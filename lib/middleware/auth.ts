@@ -13,34 +13,6 @@ import { runWithRls } from '../config/rlsContext.js';
 /**
  * JWT authentication middleware
  * Verifies JWT token and attaches user context to request
- *
- * ## Access tokens are NOT checked against a revocation list, on purpose
- *
- * Refresh tokens now are — durably, in `public.refresh_tokens` (migration
- * 0005) — because they live 7 days and a stolen or logged-out one used to keep
- * working for all of them. The obvious next step is to check access tokens the
- * same way here. It is deliberately not taken:
- *
- *  - An access token lives 15 minutes (`JWT_EXPIRES_IN`, packages/backend/src/
- *    utils/jwt.ts:18). Durable refresh revocation already caps a revoked
- *    session at that, so the check would buy at most a 15-minute window.
- *  - The cost is a database round trip on EVERY authenticated request — this
- *    middleware runs before every handler — and it puts Postgres on the
- *    critical path of authentication itself. A pooler hiccup would stop being
- *    "some requests fail" and start being "nobody is logged in".
- *  - It would be the one check with no cheaper equivalent: the tenant tables
- *    are all scoped by `userId`, so an access token for a deleted or
- *    logged-out account already reads and writes nothing. What it buys is
- *    minutes of "session looks alive", not access to data.
- *
- * The in-memory `TokenBlacklistService` is not consulted here either, and that
- * is the same judgement rather than an oversight: per-instance state is empty
- * on a cold serverless instance, so consulting it would provide security that
- * holds only by luck — the exact illusion the refresh-token work removed.
- *
- * If the 15-minute window ever needs closing, the cheap version is a
- * `tokensRevokedAt` column on `users` compared against the token's `iat`,
- * cached per instance — not a per-request blacklist lookup.
  */
 export function authenticateJWT(): Middleware {
   return async (

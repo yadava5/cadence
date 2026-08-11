@@ -16,12 +16,6 @@ import {
   Smartphone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  parseShowcase,
-  type ShowcaseChip,
-  type ShowcaseParse,
-} from '@/lib/showcaseParse';
-import { FINALE_SENTENCES, SHOWCASE_SENTENCES } from './welcomeSentences';
 
 /**
  * Public landing — the front door before the app. It tells one story, in five
@@ -30,13 +24,9 @@ import { FINALE_SENTENCES, SHOWCASE_SENTENCES } from './welcomeSentences';
  * identity of the auth surface (near-black ink, mono labels, hairline rules,
  * a single emerald accent) so landing → login → app reads as one product.
  *
- * The centrepiece is the ParseShowcase: it does not describe the parser, it
- * runs a real sentence through it. You type, it reads, it files. Every chip
- * on this page is a field the app's own parser returned for the sentence
- * shown above it, resolved in the browser at runtime, so the page cannot
- * claim a parse the product does not produce. The sentences themselves live
- * in ./welcomeSentences and are asserted against that parser in
- * src/lib/__tests__/showcaseParse.test.ts.
+ * The centrepiece is the ParseShowcase: it doesn't describe the parser, it
+ * runs one real sentence through it — you type → it reads → it files. Both
+ * examples are the app's own smart-input behavior, verbatim.
  *
  * The page is layered with restrained, reduced-motion-safe micro-interactions
  * — a living token→chip background, a cursor-lit signature card, magnetic CTAs,
@@ -100,7 +90,7 @@ function LivingBackground() {
       'tomorrow 1pm',
       'ship the report',
       'friday',
-      'p1',
+      '!high',
       '#work',
       'standup 9am',
       'gym',
@@ -753,18 +743,58 @@ function Reveal({
 
 /* ------------------------------------------------------------------ */
 /* ParseShowcase — the hero artifact: one sentence, three beats.        */
-/* Each sentence types itself in, resolves into staggered chips, and    */
-/* files a single chip onto the mini week. The card is cursor-lit       */
-/* (spotlight + tilt + traveling beam-border). Under reduced motion the */
-/* cycle still advances (instant swap) and everything renders in its    */
-/* final state.                                                         */
-/*                                                                      */
-/* The chips are not written here. Each sentence is fed to the app's    */
-/* own parser on mount and the beats render whatever it returns, so the */
-/* page cannot claim a parse the product does not produce. Until the    */
-/* parser resolves (it is imported on demand) the chip row stays empty  */
-/* rather than showing a placeholder that might be wrong.               */
+/* Cycles the app's two real landing examples. Each active example      */
+/* types itself in, resolves into staggered chips, and files a single   */
+/* chip onto the mini week. The card is cursor-lit (spotlight + tilt +  */
+/* traveling beam-border). Under reduced motion the cycle still         */
+/* advances (instant swap) and everything renders in its final state.   */
 /* ------------------------------------------------------------------ */
+type Example = {
+  text: string;
+  chips: [string, string][];
+  filed: {
+    kind: 'event' | 'task';
+    day: number; // 0-4, MON–FRI
+    top: string; // vertical position in the mini week
+    label: string;
+    detail: string;
+  };
+};
+
+const EXAMPLES: Example[] = [
+  {
+    text: 'Lunch with Sam tomorrow 1pm at Patterson’s',
+    chips: [
+      ['event', 'Lunch with Sam'],
+      ['when', 'tomorrow · 1:00 PM'],
+      ['where', 'Patterson’s'],
+    ],
+    filed: {
+      kind: 'event',
+      day: 3,
+      top: '34%',
+      label: 'Lunch with Sam',
+      detail: '1:00 PM · Patterson’s',
+    },
+  },
+  {
+    text: 'Ship the report by Friday !high #work',
+    chips: [
+      ['task', 'Ship the report'],
+      ['due', 'Friday'],
+      ['priority', 'high'],
+      ['list', 'work'],
+    ],
+    filed: {
+      kind: 'task',
+      day: 4,
+      top: '12%',
+      label: 'Ship the report',
+      detail: 'due · !high · #work',
+    },
+  },
+];
+
 const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI'] as const;
 
 function ParseShowcase() {
@@ -777,21 +807,6 @@ function ParseShowcase() {
   const [chipsIn, setChipsIn] = useState(reduced);
   const [filedIn, setFiledIn] = useState(reduced);
 
-  // Filled from the real parser once it has loaded.
-  const [parses, setParses] = useState<(ShowcaseParse | null)[]>(() =>
-    SHOWCASE_SENTENCES.map(() => null)
-  );
-
-  useEffect(() => {
-    let live = true;
-    void Promise.all(SHOWCASE_SENTENCES.map(parseShowcase)).then((results) => {
-      if (live) setParses(results);
-    });
-    return () => {
-      live = false;
-    };
-  }, []);
-
   const outerRef = useRef<HTMLDivElement>(null);
   const raf = useRef(0);
 
@@ -802,12 +817,12 @@ function ParseShowcase() {
     let swapTimer: number | undefined;
     const id = window.setInterval(() => {
       if (reduced) {
-        setIndex((i) => (i + 1) % SHOWCASE_SENTENCES.length);
+        setIndex((i) => (i + 1) % EXAMPLES.length);
         return;
       }
       setVisible(false);
       swapTimer = window.setTimeout(() => {
-        setIndex((i) => (i + 1) % SHOWCASE_SENTENCES.length);
+        setIndex((i) => (i + 1) % EXAMPLES.length);
         setVisible(true);
       }, 260);
     }, 5200);
@@ -819,7 +834,7 @@ function ParseShowcase() {
 
   // Drive the type → chips → file sequence whenever the active example changes.
   useEffect(() => {
-    const text = SHOWCASE_SENTENCES[index];
+    const ex = EXAMPLES[index];
     if (reduced) {
       setTyped(Infinity);
       setChipsIn(true);
@@ -833,15 +848,15 @@ function ParseShowcase() {
     const typer = window.setInterval(() => {
       i += 1;
       setTyped(i);
-      if (i >= text.length) window.clearInterval(typer);
+      if (i >= ex.text.length) window.clearInterval(typer);
     }, 26);
     const chipsTimer = window.setTimeout(
       () => setChipsIn(true),
-      text.length * 26 + 140
+      ex.text.length * 26 + 140
     );
     const filedTimer = window.setTimeout(
       () => setFiledIn(true),
-      text.length * 26 + 140 + 4 * 80 + 260
+      ex.text.length * 26 + 140 + ex.chips.length * 80 + 260
     );
     return () => {
       window.clearInterval(typer);
@@ -873,10 +888,9 @@ function ParseShowcase() {
     el.style.setProperty('--ry', '0deg');
   };
 
-  const text = SHOWCASE_SENTENCES[index];
-  const ex = parses[index];
-  const shownText = typed >= text.length ? text : text.slice(0, typed);
-  const typing = typed < text.length;
+  const ex = EXAMPLES[index];
+  const shownText = typed >= ex.text.length ? ex.text : ex.text.slice(0, typed);
+  const typing = typed < ex.text.length;
 
   return (
     <div
@@ -932,7 +946,7 @@ function ParseShowcase() {
                 it reads
               </p>
               <div className="mt-2 flex min-h-[2rem] flex-wrap gap-2">
-                {(ex?.chips ?? []).map(([kind, value], i) => (
+                {ex.chips.map(([kind, value], i) => (
                   <span
                     key={kind + value}
                     style={{ transitionDelay: `${i * 80}ms` }}
@@ -964,7 +978,7 @@ function ParseShowcase() {
                       {day}
                     </p>
                     <div className="relative h-[calc(100%-1.75rem)]">
-                      {ex?.filed && ex.filed.day === i && (
+                      {ex.filed.day === i && (
                         <div
                           className={cn(
                             'absolute inset-x-1 rounded-md px-1.5 py-1 transition-all duration-500 ease-out will-change-transform motion-reduce:transition-none',
@@ -1008,23 +1022,83 @@ function ParseShowcase() {
           </div>
         </div>
       </div>
-      <p className="mt-3 min-h-[1rem] text-center font-mono text-[0.62rem] uppercase tracking-widest text-[#63666c]">
-        {ex?.filed &&
-          `no forms were opened in the making of that ${ex.filed.kind}`}
+      <p className="mt-3 text-center font-mono text-[0.62rem] uppercase tracking-widest text-[#63666c]">
+        no forms were opened in the making of that {ex.filed.kind}
       </p>
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
+/* miniParse — the easter-egg's featherweight, dependency-free reader.  */
+/* It recognizes the same token shapes the real smart-input does (time, */
+/* day, !priority, #list, "at" place) so a typed sentence resolves into */
+/* chips live. It is deliberately a toy — the real parser lives one      */
+/* click away, in the app.                                              */
+/* ------------------------------------------------------------------ */
+function miniParse(input: string): { chips: [string, string][] } {
+  const raw = input.trim();
+  if (!raw) return { chips: [] };
+  let rest = ` ${raw} `;
+  const chips: [string, string][] = [];
+
+  const pr = rest.match(/!(urgent|high|med(?:ium)?|low)/i);
+  let priority = '';
+  if (pr) {
+    priority = pr[1].toLowerCase();
+    rest = rest.replace(pr[0], ' ');
+  }
+
+  const list = rest.match(/#(\w+)/);
+  let listName = '';
+  if (list) {
+    listName = list[1];
+    rest = rest.replace(list[0], ' ');
+  }
+
+  const time = rest.match(/\b(\d{1,2})(:\d{2})?\s?(am|pm)\b/i);
+  let clock = '';
+  if (time) {
+    clock = `${time[1]}${time[2] || ''} ${time[3].toUpperCase()}`;
+    rest = rest.replace(time[0], ' ');
+  }
+
+  const date = rest.match(
+    /\b(today|tonight|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun|next week|this week)\b/i
+  );
+  let day = '';
+  if (date) {
+    day = date[1];
+    rest = rest.replace(date[0], ' ');
+  }
+
+  const at = rest.match(/\bat\s+([\p{L}0-9’'&.-]+(?:\s+[\p{L}0-9’'&.-]+)?)/iu);
+  let where = '';
+  if (at) {
+    where = at[1].trim();
+    rest = rest.replace(at[0], ' ');
+  }
+
+  const title = rest
+    .replace(/\bby\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const isTask = !!priority || (!!listName && !clock);
+  const kind = isTask ? 'task' : clock || day ? 'event' : 'note';
+  chips.push([kind, title ? title[0].toUpperCase() + title.slice(1) : '—']);
+
+  const when = [day, clock].filter(Boolean).join(' · ');
+  if (when) chips.push([isTask ? 'due' : 'when', when]);
+  if (where) chips.push(['where', where]);
+  if (priority) chips.push(['priority', priority]);
+  if (listName) chips.push(['list', listName]);
+  return { chips };
+}
+
+/* ------------------------------------------------------------------ */
 /* QuickParseEgg — the hidden delighter. Press "/" anywhere (outside a  */
 /* field) and a quick-parse bar appears; type a plain sentence and      */
 /* watch it resolve into chips live. Esc closes; focus is restored.     */
-/*                                                                      */
-/* It runs the app's own parser, the same one the showcase above uses.  */
-/* It used to run a hand-rolled reader that recognised token shapes the */
-/* product does not have (a "!high" priority, a "#work" list), so what  */
-/* a visitor typed here and what the app would do with it could differ. */
 /* ------------------------------------------------------------------ */
 function QuickParseEgg() {
   const reduced = useReducedMotion();
@@ -1032,28 +1106,8 @@ function QuickParseEgg() {
   const [value, setValue] = useState(
     'Coffee with Priya thursday 10am #catchup'
   );
-  const [chips, setChips] = useState<ShowcaseChip[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const restoreRef = useRef<HTMLElement | null>(null);
-
-  // Debounced so a fast typist does not queue a parse per keystroke.
-  useEffect(() => {
-    if (!open) return;
-    if (!value.trim()) {
-      setChips([]);
-      return;
-    }
-    let live = true;
-    const id = window.setTimeout(() => {
-      void parseShowcase(value).then((result) => {
-        if (live) setChips(result.chips);
-      });
-    }, 110);
-    return () => {
-      live = false;
-      window.clearTimeout(id);
-    };
-  }, [open, value]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1085,6 +1139,7 @@ function QuickParseEgg() {
   }, [open]);
 
   if (!open) return null;
+  const { chips } = miniParse(value);
 
   return (
     <div
@@ -1144,7 +1199,7 @@ function QuickParseEgg() {
             )}
           </div>
           <p className="mt-4 font-mono text-[0.58rem] uppercase tracking-widest text-[#63666c]">
-            the app&apos;s own parser, running here
+            a toy reader — the real parser is one sign-in away
           </p>
         </div>
       </div>
@@ -1162,6 +1217,34 @@ function QuickParseEgg() {
 /* Clicking the band files ANOTHER sentence (each targets a different   */
 /* day). Reduced motion shows the resolved composition, no animation.   */
 /* ------------------------------------------------------------------ */
+const FINALE = [
+  {
+    sentence: 'email the team friday 9am #standup',
+    day: 4,
+    title: 'Standup',
+    when: 'Fri · 9am',
+  },
+  {
+    sentence: 'lunch with sam tuesday noon',
+    day: 1,
+    title: 'Lunch with Sam',
+    when: 'Tue · 12pm',
+  },
+  {
+    sentence: 'design review wednesday 2pm !high',
+    day: 2,
+    title: 'Design review',
+    when: 'Wed · 2pm',
+  },
+  { sentence: 'gym monday 7am', day: 0, title: 'Gym', when: 'Mon · 7am' },
+  {
+    sentence: 'ship the release thursday 4pm #launch',
+    day: 3,
+    title: 'Ship the release',
+    when: 'Thu · 4pm',
+  },
+] as const;
+
 function SignatureEnding() {
   const reduced = useReducedMotion();
   const ref = useRef<HTMLButtonElement>(null);
@@ -1171,24 +1254,6 @@ function SignatureEnding() {
   const [mark, setMark] = useState(reduced);
   const played = useRef(reduced);
   const timers = useRef<number[]>([]);
-
-  // The card's title, day and time come from the parser, not from a table
-  // written alongside the sentence. The table used to say this sentence filed
-  // a card called "Standup"; the parser titles it "Email the team" and files
-  // the hashtag as a tag.
-  const [parses, setParses] = useState<(ShowcaseParse | null)[]>(() =>
-    FINALE_SENTENCES.map(() => null)
-  );
-
-  useEffect(() => {
-    let live = true;
-    void Promise.all(FINALE_SENTENCES.map(parseShowcase)).then((results) => {
-      if (live) setParses(results);
-    });
-    return () => {
-      live = false;
-    };
-  }, []);
 
   const play = () => {
     timers.current.forEach((t) => window.clearTimeout(t));
@@ -1232,15 +1297,14 @@ function SignatureEnding() {
   const replay = () => {
     if (reduced) return; // resolved composition stays put
     played.current = true;
-    setRunIdx((i) => (i + 1) % FINALE_SENTENCES.length);
+    setRunIdx((i) => (i + 1) % FINALE.length);
     setCollapse(false);
     setSnap(false);
     setMark(false);
     play();
   };
 
-  const sentence = FINALE_SENTENCES[runIdx];
-  const filed = parses[runIdx]?.filed ?? null;
+  const { sentence, day, title, when } = FINALE[runIdx];
 
   return (
     <section className="relative border-t border-white/[0.06] bg-[#0c0c0d]">
@@ -1303,7 +1367,7 @@ function SignatureEnding() {
             calm emerald pulse sweeps the columns left to right. */}
         <div className="mt-12 grid w-full grid-cols-5 border-t border-white/10 bg-[#0f1011]">
           {DAYS.map((d, i) => {
-            const target = filed !== null && i === filed.day;
+            const target = i === day;
             return (
               <div
                 key={d}
@@ -1331,10 +1395,10 @@ function SignatureEnding() {
                     }}
                   >
                     <p className="truncate text-[0.68rem] font-medium leading-tight text-emerald-100">
-                      {filed.label}
+                      {title}
                     </p>
                     <p className="truncate font-mono text-[0.55rem] text-emerald-400/70">
-                      {filed.detail}
+                      {when}
                     </p>
                   </div>
                 )}
@@ -1413,14 +1477,14 @@ const PIPELINE = [
   {
     stage: 'rules',
     reads: 'the priority',
-    example: '“p1 #work” → priority + tag',
+    example: '“!high #work” → priority + list',
   },
 ] as const;
 
 const STACK = [
   {
     icon: ServerCog,
-    title: '37 handlers, one function',
+    title: '34 handlers, one function',
     body: 'Every API handler ships inside a single catch-all dispatcher that routes by URL path — byte-for-byte the same handlers, no framework routing assumptions.',
   },
   {
@@ -1448,8 +1512,8 @@ const NEW_CAPS = [
   },
   {
     icon: Link2,
-    title: 'Google Calendar, read and write',
-    body: 'Cadence requests one Google scope, https://www.googleapis.com/auth/calendar.events. It grants read and write on your events, never full calendar management and never Gmail. Reads pull your Google events in. Writes happen only when you schedule a meeting from Cadence: it creates the event, attaches a Google Meet link if you ask for one, and Google emails every attendee the invite.',
+    title: 'Google Calendar sync',
+    body: 'An incremental, read-only pull: Cadence asks only for the calendar.readonly scope, so it can show your Google events without touching them.',
   },
 ] as const;
 

@@ -462,9 +462,8 @@ class GoogleOAuthService {
     // Generate JWT tokens
     const tokens = await generateTokenPair(user.id, user.email);
 
-    // Store refresh token. AWAITED: the row has to be committed before the
-    // token is handed out, because validation now requires it.
-    await refreshTokenService.storeRefreshToken(
+    // Store refresh token
+    refreshTokenService.storeRefreshToken(
       tokens.refreshToken,
       user.id,
       user.email

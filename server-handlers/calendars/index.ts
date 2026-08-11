@@ -14,7 +14,7 @@ import type { VercelResponse } from '@vercel/node';
 import type {
   CreateCalendarDTO,
   CalendarFilters,
-} from '../../lib/services/CalendarService.js';
+} from '../../lib/services/CalendarService';
 
 export default createCrudHandler({
   get: async (req: AuthenticatedRequest, res: VercelResponse) => {

@@ -21,7 +21,7 @@ import { CustomTimeInput } from '@/components/ui/CustomTimeInput';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useSettingsStore, type DateDisplayMode } from '@/stores/settingsStore';
-import { formatDueDate, isAllDayDate, toPickerDate } from '@/utils/dueDate';
+import { formatRelative } from '@/utils/date';
 
 interface DueDateBadgeProps {
   taskId: string;
@@ -41,17 +41,13 @@ export const DueDateBadge: React.FC<DueDateBadgeProps> = ({
   emptyLabel = 'Add due date',
 }) => {
   const [open, setOpen] = useState(false);
-  // An all-day due date is re-anchored to local midnight of the day it denotes,
-  // so the picker highlights (and writes back) the day the badge shows — a
-  // UTC-midnight value would otherwise select the previous day west of GMT.
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(() =>
-    date ? toPickerDate(date) : undefined
-  );
-  const [includeTime, setIncludeTime] = useState<boolean>(() =>
-    date ? !isAllDayDate(date) : false
-  );
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(date);
+  const [includeTime, setIncludeTime] = useState<boolean>(() => {
+    if (!date) return false;
+    return !(date.getHours() === 0 && date.getMinutes() === 0);
+  });
   const [timeValue, setTimeValue] = useState<string>(() => {
-    if (!date || isAllDayDate(date)) return '12:00';
+    if (!date) return '12:00';
     const hh = String(date.getHours()).padStart(2, '0');
     const mm = String(date.getMinutes()).padStart(2, '0');
     return `${hh}:${mm}`;
@@ -60,10 +56,12 @@ export const DueDateBadge: React.FC<DueDateBadgeProps> = ({
   const dateDisplayMode = useSettingsStore((s) => s.dateDisplayMode);
 
   useEffect(() => {
-    setSelectedDate(date ? toPickerDate(date) : undefined);
-    setIncludeTime(date ? !isAllDayDate(date) : false);
+    setSelectedDate(date);
+    setIncludeTime(
+      date ? !(date.getHours() === 0 && date.getMinutes() === 0) : false
+    );
     setTimeValue(
-      date && !isAllDayDate(date)
+      date
         ? `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
         : '12:00'
     );
@@ -72,15 +70,19 @@ export const DueDateBadge: React.FC<DueDateBadgeProps> = ({
   const formatDisplay = useMemo(() => {
     return (d?: Date) => {
       if (!d) return emptyLabel;
-      // The value itself decides whether a time is shown: an all-day date is
-      // rendered from its calendar parts, never converted into a local clock.
       if (dateDisplayMode === 'relative') {
-        return formatDueDate(d, 'relative');
+        if (includeTime) return formatRelative(d);
+        // relative date without time
+        const rel = formatRelative(d);
+        return rel.replace(/\s+at\s+.*/i, '');
       }
-      const base = formatDueDate(d, 'numeric');
-      return isAllDayDate(d) ? base : `${base} @ ${format(d, 'h:mm a')}`;
+      const base = format(d, 'MM/dd/yyyy');
+      if (includeTime) {
+        return `${base} @ ${format(d, 'h:mm a')}`;
+      }
+      return base;
     };
-  }, [dateDisplayMode, emptyLabel]);
+  }, [dateDisplayMode, includeTime, emptyLabel]);
 
   const apply = (next?: Date) => {
     onChange(next);

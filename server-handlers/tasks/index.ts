@@ -26,47 +26,7 @@ const MAX_UNPAGINATED_LIMIT = 500;
 import type {
   CreateTaskDTO,
   TaskFilters,
-} from '../../lib/services/TaskService.js';
-import { z } from 'zod';
-import {
-  dateTimeField,
-  integerQueryField,
-} from '../../lib/middleware/validation.js';
-
-/**
- * Gate, not parser — the handler below still reads every filter off
- * `req.query`. Zod strips unknown keys, so switching the handler to
- * `req.validated.query` would silently drop any filter this schema forgot; a
- * dozen of them pass through here.
- *
- * `tags` is the one legitimately repeatable parameter (`?tags=a&tags=b`), so it
- * accepts an array as well as a string.
- */
-const tasksQuerySchema = z.object({
-  completed: z.string().optional(),
-  taskListId: z.string().optional(),
-  priority: z.string().optional(),
-  search: z.string().optional(),
-  overdue: z.string().optional(),
-  scheduledDateFrom: dateTimeField('scheduledDateFrom').optional(),
-  scheduledDateTo: dateTimeField('scheduledDateTo').optional(),
-  tags: z.union([z.string(), z.array(z.string())]).optional(),
-  sortBy: z.string().optional(),
-  sortOrder: z.string().optional(),
-  page: integerQueryField('page').optional(),
-  limit: integerQueryField('limit').optional(),
-});
-
-/**
- * `CreateTaskDTO.scheduledDate` is typed `Date`, but over HTTP it arrives as a
- * string and the handler forwards `req.body` to `TaskService.create` untouched
- * — so `{"scheduledDate":"garbage"}` went into a `timestamp` column and came
- * back as a 500. `title` is left to the handler, which already 400s on it.
- */
-const createTaskBodySchema = z.object({
-  title: z.string().optional(),
-  scheduledDate: dateTimeField('scheduledDate').nullish(),
-});
+} from '../../lib/services/TaskService';
 
 export default createCrudHandler({
   get: async (req: AuthenticatedRequest, res: VercelResponse) => {
@@ -253,8 +213,4 @@ export default createCrudHandler({
 
   requireAuth: true,
   rateLimit: 'api',
-  validate: {
-    get: { query: tasksQuerySchema },
-    post: { body: createTaskBodySchema },
-  },
 });

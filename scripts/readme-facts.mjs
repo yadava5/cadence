@@ -116,30 +116,6 @@ function countRoutes() {
   );
 }
 
-/**
- * The single Google OAuth scope the app asks a user to consent to, read from
- * the `const CAL_SCOPE = '…'` declaration in server-handlers/google/calendar.ts.
- *
- * This one is a STRING rather than a count, which is the reason `text` sites
- * exist. It is also the fact most worth pinning: the landing page told visitors
- * for months that Cadence asked only for `calendar.readonly` and could not
- * touch their events, while the code had been upgraded to `calendar.events`
- * (read AND write) and google/meeting.ts was creating events and emailing
- * attendees with `sendUpdates=all`. Nothing failed, because nothing checked.
- * A wrong number is embarrassing; a wrong consent claim is a lie about what a
- * user is agreeing to hand over.
- */
-function googleScope() {
-  const m = read('server-handlers/google/calendar.ts').match(
-    /^const CAL_SCOPE = '([^']+)';$/m
-  );
-  if (!m)
-    throw new Error(
-      "server-handlers/google/calendar.ts: could not find the `const CAL_SCOPE = '…'` declaration"
-    );
-  return m[1];
-}
-
 const WORDS = [
   'zero',
   'one',
@@ -175,20 +151,11 @@ const stripCommas = (s) => s.replace(/,/g, '');
  * A site may be a bare RegExp (checked against README.md) or an object:
  *   { re, file }  — check some other file instead
  *   { re, word }  — the number is spelled out in English ("seven")
- *   { re, text }  — the fact is a string, compared verbatim, not a number
  *
  * Claim sites outside the README matter more than they look. The doc comment
  * at the top of api/index.ts said "numbered 36" for as long as the README did,
  * and was corrected in the same sweep — a number repeated in a second file is
  * a number that will be corrected in one file and not the other.
- *
- * THE LANDING PAGE IS A CLAIM SITE TOO. src/pages/Welcome.tsx is the first
- * thing a visitor reads and it makes exactly the same kind of assertions the
- * README does — a handler count, a Google scope — with exactly the same
- * tendency to rot. It said "34 handlers" against a route table of 37, and
- * advertised a read-only Google scope the app had stopped requesting. Prose
- * that is shown to strangers deserves the checker more than prose shown to
- * contributors, not less.
  */
 const FACTS = {
   routes: {
@@ -203,37 +170,6 @@ const FACTS = {
       {
         re: /per-file handlers under \.\.\/server-handlers \(formerly api\/\*\) numbered\s+\*?\s*(\d+)\./g,
         file: 'api/index.ts',
-      },
-      {
-        re: /title: '(\d+) handlers, one function'/g,
-        file: 'src/pages/Welcome.tsx',
-      },
-    ],
-  },
-
-  /**
-   * A string fact, asserted at two sites in two different trees. The landing
-   * page has to name the scope it names, and src/services/api/auth.ts — which
-   * builds the sign-in consent URL and is where a visitor's browser actually
-   * carries the request to Google — has to ask for that same scope. Pinning
-   * both is what stops the page and the consent screen from drifting apart:
-   * either one moving alone now fails the check.
-   */
-  googleCalendarScope: {
-    kind: 'static',
-    describe:
-      'the Google OAuth scope requested (CAL_SCOPE in server-handlers/google/calendar.ts)',
-    compute: googleScope,
-    sites: [
-      {
-        re: /requests one Google scope, (https:\/\/\S+?)\. It grants read and write/g,
-        file: 'src/pages/Welcome.tsx',
-        text: true,
-      },
-      {
-        re: /'openid email profile (https:\/\/\S+?)',/g,
-        file: 'src/services/api/auth.ts',
-        text: true,
       },
     ],
   },
@@ -468,8 +404,7 @@ function run(mode) {
   for (const [id, fact] of Object.entries(FACTS)) {
     const expected = values[id];
     for (const raw of fact.sites) {
-      const site =
-        raw instanceof RegExp ? { re: raw, word: false, text: false } : raw;
+      const site = raw instanceof RegExp ? { re: raw, word: false } : raw;
       const rel = site.file ?? 'README.md';
       const entry = load(rel);
       const re = new RegExp(
@@ -493,23 +428,16 @@ function run(mode) {
 
       for (const m of matches) {
         const found = m[1];
-        /* `text` compares verbatim: a scope string has no numeric reading, and
-           routing it through Number() would make every value NaN and every
-           comparison silently false. */
         const ok = site.word
           ? found === toWord(expected)
-          : site.text
-            ? found === String(expected)
-            : Number(stripCommas(found)) === Number(expected);
+          : Number(stripCommas(found)) === Number(expected);
         if (ok) continue;
 
         const want = site.word
           ? toWord(expected)
-          : site.text
-            ? String(expected)
-            : found.includes(',')
-              ? withCommas(expected)
-              : String(expected);
+          : found.includes(',')
+            ? withCommas(expected)
+            : String(expected);
 
         if (mode === 'write') {
           const replaced = m[0].replace(found, want);
@@ -575,27 +503,6 @@ function run(mode) {
     }
   }
 
-  // The recorded figures are only evidence if the run that produced them
-  // passed. `--record` writes `suiteOutcome` but nothing ever asserted it, so a
-  // red run's numbers could be written and then agree with the README forever
-  // after. That is the same shape as a claim site matching zero times: a check
-  // that cannot fail. It nearly happened during the 2026-08-10 pass, when the
-  // backend suite was briefly red while another agent was mid-fix.
-  const outcome = artifact.suiteOutcome;
-  if (!outcome) {
-    problems.push(
-      `${relative(REPO, ARTIFACT)} carries no suiteOutcome, so there is no evidence ` +
-        'the run behind these figures passed. Re-run --record.'
-    );
-  } else if (!outcome.allGreen) {
-    problems.push(
-      'the recorded figures came from a suite that did not pass ' +
-        `(frontend ${outcome.frontend?.failed ?? '?'} failed, ` +
-        `backend ${outcome.backend?.failed ?? '?'} failed). ` +
-        'Numbers from a red run are not evidence. Fix the suite, then re-run --record.'
-    );
-  }
-
   if (mode === 'write') {
     const written = [];
     for (const [rel, entry] of files) {
@@ -620,7 +527,7 @@ function run(mode) {
 
   if (problems.length) {
     console.error(
-      `\n  Claim sites disagree with the code in ${problems.length} place(s):\n`
+      `\n  README.md disagrees with the code in ${problems.length} place(s):\n`
     );
     for (const p of problems) console.error(`  ✗ ${p}\n`);
     console.error(

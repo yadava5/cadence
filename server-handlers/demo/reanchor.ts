@@ -44,8 +44,10 @@ import { randomUUID, timingSafeEqual } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 import { query, withTransaction } from '../../lib/config/database.js';
-import { DEMO_EMAIL } from '../../lib/config/demo.js';
 import { runWithRls } from '../../lib/config/rlsContext.js';
+
+/** The shared public demo account, the same address the landing page prints. */
+const DEMO_EMAIL = 'john@example.com';
 
 /** Constant-time bearer comparison. Length is checked first — timingSafeEqual throws otherwise. */
 function secretMatches(presented: string, expected: string): boolean {
@@ -107,23 +109,10 @@ export default async function handler(
         // data harm, but a no-op that writes every six hours forever is not a
         // no-op. As text, zero is '00:00:00' and a real shift is '21 days',
         // which `$1::interval` accepts back unchanged.
-        // Every statement below names the demo user explicitly.
-        //
-        // They did not, and were correct only because `runWithRls` + FORCE RLS
-        // made two bare `UPDATE`s over `public.events` and `public.tasks` mean
-        // "the demo account's rows". That is a real guarantee, but it is the
-        // ONLY thing standing between this endpoint and rewriting every row in
-        // both tables: drop the policies for an incident, run this against a
-        // local database with RLS off, or connect as a BYPASSRLS role, and an
-        // UPDATE with no WHERE does exactly what it says. The handler has had
-        // `demoUserId` in hand since the lookup above — there was never a
-        // reason not to use it.
         const delta = await client.query<{ delta: string | null }>(
           `SELECT (date_trunc('week', current_date::timestamp)
                  - date_trunc('week', min("start")))::text AS delta
-             FROM public.events
-            WHERE "userId" = $1`,
-          [demoUserId]
+             FROM public.events`
         );
         const shift = delta.rows[0]?.delta ?? null;
         if (!shift || shift === '00:00:00') {
@@ -139,18 +128,16 @@ export default async function handler(
           `UPDATE public.events
               SET "start" = "start" + $1::interval,
                   "end"   = "end"   + $1::interval,
-                  "updatedAt" = now()
-            WHERE "userId" = $2`,
-          [shift, demoUserId]
+                  "updatedAt" = now()`,
+          [shift]
         );
         const tasks = await client.query(
           `UPDATE public.tasks
               SET "scheduledDate" = "scheduledDate" + $1::interval,
                   "completedAt"   = CASE WHEN "completedAt" IS NULL THEN NULL
                                          ELSE least("completedAt" + $1::interval, now()::timestamp) END,
-                  "updatedAt" = now()
-            WHERE "userId" = $2`,
-          [shift, demoUserId]
+                  "updatedAt" = now()`,
+          [shift]
         );
         return {
           shifted: shift,

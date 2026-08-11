@@ -217,19 +217,6 @@ export class TagService extends BaseService<
       const whereClauses: string[] = [];
       const userId = scopedFilters.userId;
 
-      // Scope the TAGS themselves, not just their usage.
-      //
-      // `userId` reached the EXISTS on task_tags and the usage LEFT JOIN, and
-      // stopped there — the SELECT over `tags` had no owner predicate at all.
-      // With `hasActiveTasks`/`withUsageCount` unset (the default, and what
-      // GET /api/tags sends) that is an unfiltered read of every tenant's tags.
-      // Production is saved by RLS and by connecting as a NOBYPASSRLS role; a
-      // local database with RLS off, or any future BYPASSRLS connection, is not.
-      if (userId) {
-        params.push(userId);
-        whereClauses.push(`t."userId" = $${params.length}`);
-      }
-
       if (scopedFilters.type) {
         params.push(scopedFilters.type);
         whereClauses.push(`t.type = $${params.length}`);
@@ -629,22 +616,6 @@ export class TagService extends BaseService<
         if (task.rowCount === 0) {
           throw new Error('VALIDATION_ERROR: Task not found or access denied');
         }
-
-        // ...and the TAG. Tags became per-user in 0001, so an unchecked `tagId`
-        // is the same cross-tenant write the merge endpoint had: pair one of my
-        // tasks with someone else's tag, and the label disappears from my task
-        // (I cannot read the tag) until they delete it, at which point
-        // `task_tags_tagId_fkey ON DELETE CASCADE` deletes my row too. Nothing
-        // routes here today — which is exactly why it is worth fixing now,
-        // rather than leaving a loaded gun for whoever wires it up.
-        const tag = await query(
-          'SELECT id FROM tags WHERE id = $1 AND "userId" = $2 LIMIT 1',
-          [taskTagData.tagId, context.userId],
-          this.db
-        );
-        if (tag.rowCount === 0) {
-          throw new Error('VALIDATION_ERROR: Tag not found or access denied');
-        }
       }
 
       // Create the relationship
@@ -841,38 +812,25 @@ export class TagService extends BaseService<
   }
 
   /**
-   * Clean up unused tags (the caller's tags with no task relationships).
-   *
-   * Both statements used to name no user at all: a SELECT over every tenant's
-   * tags and then a DELETE by the ids it found. It was safe only because
-   * production connects as a NOBYPASSRLS role with 0002's policies in force —
-   * i.e. one connection-string change away from deleting other people's data.
-   * The predicate is free; the assumption was not.
+   * Clean up unused tags (tags with no task relationships)
    */
   async cleanupUnusedTags(
     context?: ServiceContext
   ): Promise<{ deletedCount: number; deletedTagIds: string[] }> {
-    if (!context?.userId) {
-      throw new Error('AUTHORIZATION_ERROR: User ID required');
-    }
-    const userId = context.userId;
-
     try {
       this.log('cleanupUnusedTags', {}, context);
       const idsRes = await query<{ id: string }>(
-        `SELECT t.id FROM tags t
-          WHERE t."userId" = $1
-            AND NOT EXISTS (
-              SELECT 1 FROM task_tags tt WHERE tt."tagId" = t.id
-            )`,
-        [userId],
+        `SELECT t.id FROM tags t WHERE NOT EXISTS (
+           SELECT 1 FROM task_tags tt WHERE tt."tagId" = t.id
+         )`,
+        [],
         this.db
       );
       const ids = idsRes.rows.map((r) => r.id);
       if (ids.length > 0) {
         await query(
-          'DELETE FROM tags WHERE id = ANY($1::text[]) AND "userId" = $2',
-          [ids, userId],
+          'DELETE FROM tags WHERE id = ANY($1::text[])',
+          [ids],
           this.db
         );
       }
@@ -889,29 +847,7 @@ export class TagService extends BaseService<
   }
 
   /**
-   * Merge tags (combine two tags into one).
-   *
-   * ## Every id here is attacker-supplied, and none of them used to be checked
-   *
-   * `POST /api/tags/merge` passes `sourceTagIds` and `targetTagId` straight
-   * from the request body. This method then ran
-   *
-   *   UPDATE task_tags SET "tagId" = $1 WHERE "tagId" = $2
-   *
-   * with no ownership check on either side, and 0002's `task_tags` policy only
-   * asked whether the TASK was the caller's — never the tag. So with a foreign
-   * tag's cuid a caller could repoint their own `task_tags` rows at another
-   * tenant's tag. Their labels then disappeared from their own tasks (the tag
-   * is unreadable to them), and when the victim later deleted that tag,
-   * `task_tags_tagId_fkey ON DELETE CASCADE` deleted the caller's rows as well:
-   * one tenant's routine tidying silently destroying another tenant's data.
-   *
-   * Both ids are now verified to belong to the caller before anything is
-   * written, and every statement inside the transaction carries `"userId"` too.
-   * Migration 0006 adds the matching `EXISTS` on `tags` to the `task_tags`
-   * policy, so the database refuses it as well. Belt and braces on purpose: the
-   * check here produces a clean 403 instead of a policy violation, and the
-   * policy is what holds if a future caller forgets the check.
+   * Merge tags (combine two tags into one)
    */
   async mergeTags(
     sourceTagId: string | string[],
@@ -928,53 +864,33 @@ export class TagService extends BaseService<
         throw new Error('VALIDATION_ERROR: Cannot merge tag with itself');
       }
 
-      const userId = context?.userId;
-      if (!userId) {
-        throw new Error('AUTHORIZATION_ERROR: User ID required');
-      }
-
-      // One round trip for every id involved. Counting DISTINCT ids means a
-      // duplicated source cannot make the count come out right while a foreign
-      // id slips through.
-      const allIds = Array.from(new Set([...sourceTagIds, targetTagId]));
-      const owned = await query<{ id: string }>(
-        'SELECT id FROM tags WHERE id = ANY($1::text[]) AND "userId" = $2',
-        [allIds, userId],
-        this.db
-      );
-      if ((owned.rowCount ?? 0) !== allIds.length) {
-        throw new Error('AUTHORIZATION_ERROR: Tag not found or access denied');
-      }
-
       const result = await withTransaction(async (client) => {
-        // The `taskId IN (...)` guard is redundant under RLS and deliberate
-        // anyway: it is what keeps this correct on a database where RLS is off.
         if (sourceTagIds.length === 1) {
           await query(
-            'UPDATE task_tags SET "tagId" = $1 WHERE "tagId" = $2 AND "taskId" IN (SELECT id FROM tasks WHERE "userId" = $3)',
-            [targetTagId, sourceTagIds[0], userId],
+            'UPDATE task_tags SET "tagId" = $1 WHERE "tagId" = $2',
+            [targetTagId, sourceTagIds[0]],
             client
           );
           await query(
-            'DELETE FROM tags WHERE id = $1 AND "userId" = $2',
-            [sourceTagIds[0], userId],
+            'DELETE FROM tags WHERE id = $1',
+            [sourceTagIds[0]],
             client
           );
         } else {
           await query(
-            'UPDATE task_tags SET "tagId" = $1 WHERE "tagId" = ANY($2::text[]) AND "taskId" IN (SELECT id FROM tasks WHERE "userId" = $3)',
-            [targetTagId, sourceTagIds, userId],
+            'UPDATE task_tags SET "tagId" = $1 WHERE "tagId" = ANY($2::text[])',
+            [targetTagId, sourceTagIds],
             client
           );
           await query(
-            'DELETE FROM tags WHERE id = ANY($1::text[]) AND "userId" = $2',
-            [sourceTagIds, userId],
+            'DELETE FROM tags WHERE id = ANY($1::text[])',
+            [sourceTagIds],
             client
           );
         }
         const res = await query(
-          'SELECT * FROM tags WHERE id = $1 AND "userId" = $2',
-          [targetTagId, userId],
+          'SELECT * FROM tags WHERE id = $1',
+          [targetTagId],
           client
         );
         return res.rows[0];
@@ -1000,49 +916,34 @@ export class TagService extends BaseService<
   }
 
   /**
-   * Get tag statistics for the calling user.
-   *
-   * All three queries used to be unscoped, so `GET /api/tags/stats` reported
-   * the whole database's tag counts and the whole database's most-used tags —
-   * every one of them another tenant's, on any connection RLS does not bind.
-   * The usage count is scoped through the caller's tasks for the same reason.
+   * Get tag statistics
    */
   async getStatistics(context?: ServiceContext): Promise<{
     totalTags: number;
     tagsByType: Record<TagType, number>;
     mostUsedTags: Array<{ tag: TagEntity; usageCount: number }>;
   }> {
-    if (!context?.userId) {
-      throw new Error('AUTHORIZATION_ERROR: User ID required');
-    }
-    const userId = context.userId;
-
     try {
       this.log('getStatistics', {}, context);
       const totalRes = await query<{ count: string }>(
-        'SELECT COUNT(*)::bigint AS count FROM tags WHERE "userId" = $1',
-        [userId],
+        'SELECT COUNT(*)::bigint AS count FROM tags',
+        [],
         this.db
       );
       const byTypeRes = await query<{ type: TagType; count: string }>(
-        'SELECT type, COUNT(*)::bigint AS count FROM tags WHERE "userId" = $1 GROUP BY type',
-        [userId],
+        'SELECT type, COUNT(*)::bigint AS count FROM tags GROUP BY type',
+        [],
         this.db
       );
       const mostUsedRes = await query<TagEntity & { usage: string | number }>(
         `SELECT t.*, COALESCE(cnt.c, 0)::bigint AS usage
          FROM tags t
          LEFT JOIN (
-           SELECT tt."tagId", COUNT(*)::bigint AS c
-           FROM task_tags tt
-           JOIN tasks tk ON tk.id = tt."taskId"
-           WHERE tk."userId" = $1
-           GROUP BY tt."tagId"
+           SELECT "tagId", COUNT(*)::bigint AS c FROM task_tags GROUP BY "tagId"
          ) cnt ON cnt."tagId" = t.id
-         WHERE t."userId" = $1
          ORDER BY usage DESC
          LIMIT 10`,
-        [userId],
+        [],
         this.db
       );
 

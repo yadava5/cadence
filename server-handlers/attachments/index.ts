@@ -9,7 +9,7 @@ import type { VercelResponse } from '@vercel/node';
 import type {
   CreateAttachmentDTO,
   AttachmentFilters,
-} from '../../lib/services/AttachmentService.js';
+} from '../../lib/services/AttachmentService';
 import {
   UnauthorizedError,
   ValidationError,
@@ -69,7 +69,7 @@ export default createCrudHandler({
       if (category) {
         // Get attachments by category for current user (images, documents, audio, video)
         result = await attachmentService.findByCategory(
-          category as keyof typeof import('../../lib/services/AttachmentService.js').SUPPORTED_FILE_TYPES,
+          category as keyof typeof import('../../lib/services/AttachmentService').SUPPORTED_FILE_TYPES,
           {
             userId,
             requestId: req.headers['x-request-id'] as string,

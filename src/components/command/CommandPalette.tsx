@@ -51,7 +51,6 @@ import { useCalendars } from '@/hooks/useCalendars';
 import { useCreateEvent } from '@/hooks/useEvents';
 import { useCreateTask } from '@/hooks/useTasks';
 import { parseQuickAdd } from '@/lib/quickAdd';
-import { formatEventWhen } from '@/utils/dueDate';
 import type { CalendarEvent, Task } from '@shared/types';
 
 /**
@@ -112,9 +111,9 @@ const VIEW_DEFS: {
 
 function eventWhen(ev: CalendarEvent): string {
   try {
-    // All-day events go through the shared calendar-day formatter; reading one
-    // on the local clock named the previous day west of Greenwich.
-    return formatEventWhen(new Date(ev.start), ev.allDay);
+    const start = new Date(ev.start);
+    if (ev.allDay) return format(start, 'EEE, MMM d');
+    return `${format(start, 'EEE, MMM d')} · ${format(start, 'p')}`;
   } catch {
     return '';
   }

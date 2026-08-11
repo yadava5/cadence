@@ -99,15 +99,11 @@ describe('TagService', () => {
         mockContext
       );
 
-      // $1 is now the owner predicate on `tags` itself — the SELECT used to
-      // have none, so a caller read every tenant's tags. The type filter moved
-      // to $2 as a result.
       expect(mockedQuery).toHaveBeenCalledWith(
-        expect.stringContaining('t."userId" = $1'),
-        [mockUserId, 'PRIORITY', MAX_LIST_ROWS + 1],
+        expect.stringContaining('type = $1'),
+        ['PRIORITY', MAX_LIST_ROWS + 1],
         expect.anything()
       );
-      expect(String(mockedQuery.mock.calls[0][0])).toContain('t.type = $2');
       expect(result).toHaveLength(1);
       expect(result[0].type).toBe('PRIORITY');
     });
@@ -122,8 +118,8 @@ describe('TagService', () => {
       );
 
       expect(mockedQuery).toHaveBeenCalledWith(
-        expect.stringContaining('t.name ILIKE $2'),
-        [mockUserId, '%priority%', MAX_LIST_ROWS + 1],
+        expect.stringContaining('name ILIKE $1'),
+        ['%priority%', MAX_LIST_ROWS + 1],
         expect.anything()
       );
       expect(result).toHaveLength(1);
@@ -139,11 +135,9 @@ describe('TagService', () => {
       );
 
       const tagCall = mockedQuery.mock.calls[0];
-      // The tag itself is scoped ($1) as well as its task usage ($2).
-      expect(String(tagCall[0])).toContain('t."userId" = $1');
-      expect(String(tagCall[0])).toContain('tk."userId" = $2');
+      expect(String(tagCall[0])).toContain('tk."userId" = $1');
       expect(String(tagCall[0])).toContain('tk.completed = false');
-      expect(tagCall[1]).toEqual([mockUserId, mockUserId, MAX_LIST_ROWS + 1]);
+      expect(tagCall[1]).toEqual([mockUserId, MAX_LIST_ROWS + 1]);
       expect(result).toHaveLength(1);
     });
   });
@@ -481,10 +475,6 @@ describe('TagService', () => {
       const targetTagId = tagFixtures.priority.id;
 
       mockedQuery
-        // NEW first call: both tag ids must be owned by the caller.
-        .mockResolvedValueOnce(
-          createQueryResult([{ id: sourceTagId }, { id: targetTagId }], 2)
-        )
         .mockResolvedValueOnce(createQueryResult([], 1))
         .mockResolvedValueOnce(createQueryResult([], 1))
         .mockResolvedValueOnce(
@@ -499,7 +489,7 @@ describe('TagService', () => {
 
       expect(mockedQuery).toHaveBeenCalledWith(
         expect.stringContaining('UPDATE task_tags SET "tagId" = $1'),
-        [targetTagId, sourceTagId, mockUserId],
+        [targetTagId, sourceTagId],
         expect.anything()
       );
       expect(result.id).toBe(targetTagId);

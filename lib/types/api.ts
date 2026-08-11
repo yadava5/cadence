@@ -3,7 +3,6 @@
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
-import type { RateLimitPresetName } from '../middleware/rateLimit.js';
 
 /**
  * Extended request interface with user context
@@ -121,19 +120,10 @@ export enum HttpMethod {
 /**
  * Route handler type
  */
-/**
- * The return value is deliberately `unknown`, not `void`.
- *
- * Every handler in `server-handlers/auth/**` is written as
- * `return res.status(...).json(...)` — an early-return idiom that yields
- * `Promise<VercelResponse>`. Against a `Promise<void>` signature that is
- * TS2418 at each of the eight computed-property sites, and the call sites
- * `await` the result and discard it, so widening loses nothing.
- */
 export type RouteHandler = (
   req: AuthenticatedRequest,
   res: VercelResponse
-) => Promise<unknown> | unknown;
+) => Promise<void> | void;
 
 /**
  * Route configuration
@@ -144,21 +134,10 @@ export interface RouteConfig {
   requireAuth?: boolean;
   validateBody?: z.ZodSchema;
   validateQuery?: z.ZodSchema;
-  /**
-   * Either a preset name, or explicit numbers for a one-off limiter.
-   *
-   * A one-off limiter gets its own bucket, derived from the route's method and
-   * limits unless `bucket` names one explicitly — never the shared `api`
-   * bucket, and never derived from `req.url` (dynamic `[id]` routes would mint
-   * an unbounded number of buckets).
-   */
-  rateLimit?:
-    | RateLimitPresetName
-    | {
-        windowMs: number;
-        max: number;
-        bucket?: string;
-      };
+  rateLimit?: {
+    windowMs: number;
+    max: number;
+  };
 }
 
 /**

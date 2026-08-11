@@ -8,10 +8,6 @@ import {
 } from './BaseService.js';
 import { withTransaction, query } from '../config/database.js';
 import { taskListCache, createCacheKey } from '../utils/cache.js';
-import {
-  collectAttachmentBlobUrlsForTasks,
-  deleteBlobObjects,
-} from '../utils/blobCleanup.js';
 
 /**
  * Task entity interface extending base
@@ -150,18 +146,47 @@ export class TaskService extends BaseService<
   UpdateTaskDTO,
   TaskFilters
 > {
-  // `ensureStatusColumnExists()` used to live here: an `information_schema`
-  // probe on the first call in each process, followed by ALTER TABLE / backfill
-  // / SET DEFAULT / SET NOT NULL if `tasks.status` was missing. It is gone, and
-  // the column is declared in `lib/config/migrations/0008_schema_columns_from_
-  // runtime_ddl.sql` instead.
-  //
-  // It was safe to delete because the column was confirmed on the live table
-  // (`text NOT NULL DEFAULT 'NOT_STARTED'`), not because the probe looked
-  // harmless. DDL issued from a request handler needs ALTER privilege the app
-  // otherwise never uses, takes an ACCESS EXCLUSIVE lock on `tasks` that blocks
-  // every reader while it runs, and picks its moment — the first request after
-  // a cold start — which is the worst one available.
+  private static didEnsureStatusColumn = false;
+
+  private async ensureStatusColumnExists(): Promise<void> {
+    if (TaskService.didEnsureStatusColumn) return;
+    try {
+      const checkRes = await query<{ exists: boolean }>(
+        `SELECT EXISTS (
+           SELECT 1
+           FROM information_schema.columns
+           WHERE table_name = 'tasks' AND column_name = 'status'
+         ) AS exists`,
+        [],
+        this.db
+      );
+      const exists = Boolean(checkRes.rows[0]?.exists);
+      if (!exists) {
+        await query(`ALTER TABLE tasks ADD COLUMN status TEXT`, [], this.db);
+        // Default values based on completed flag
+        await query(
+          `UPDATE tasks SET status = CASE WHEN completed = true THEN 'DONE' ELSE 'NOT_STARTED' END WHERE status IS NULL`,
+          [],
+          this.db
+        );
+        // Enforce NOT NULL with default going forward
+        await query(
+          `ALTER TABLE tasks ALTER COLUMN status SET DEFAULT 'NOT_STARTED'`,
+          [],
+          this.db
+        );
+        await query(
+          `ALTER TABLE tasks ALTER COLUMN status SET NOT NULL`,
+          [],
+          this.db
+        );
+      }
+      TaskService.didEnsureStatusColumn = true;
+    } catch {
+      // If this fails (e.g., insufficient perms), continue without crashing; transformEntity derives status
+      TaskService.didEnsureStatusColumn = true;
+    }
+  }
 
   protected getTableName(): string {
     return 'tasks';
@@ -563,6 +588,7 @@ export class TaskService extends BaseService<
 
       await this.validateCreate(data, context);
       await this.ensureUserExists(context?.userId);
+      await this.ensureStatusColumnExists();
 
       // Get or create default task list if none specified
       let taskListId = data.taskListId;
@@ -662,6 +688,7 @@ export class TaskService extends BaseService<
     data: UpdateTaskDTO,
     context?: ServiceContext
   ): Promise<TaskEntity | null> {
+    await this.ensureStatusColumnExists();
     await this.validateUpdate(id, data, context);
     const sets: string[] = [];
     const params: Array<string | boolean | Date | null> = []; // Mixed types for SQL parameters
@@ -733,15 +760,6 @@ export class TaskService extends BaseService<
    * context.userId.
    */
   async delete(id: string, context?: ServiceContext): Promise<boolean> {
-    // Read the attachment blob URLs BEFORE the delete. `attachments_taskId_fkey`
-    // is ON DELETE CASCADE, so the rows naming those objects vanish inside the
-    // statement below and no later cleanup can ever find them again. Uploads are
-    // stored `access: 'public'`, so a missed one is a permanent public URL for a
-    // file the user just deleted.
-    const blobUrls = context?.userId
-      ? await collectAttachmentBlobUrlsForTasks([id], context.userId, this.db)
-      : [];
-
     const params: unknown[] = [id];
     let where = 'id = $1';
     if (context?.userId) {
@@ -753,14 +771,7 @@ export class TaskService extends BaseService<
       params,
       this.db
     );
-    const deleted = (res.rowCount ?? 0) > 0;
-
-    // Only if a row actually went. A refused (not-found / not-owned) delete must
-    // not reach out and delete objects.
-    if (deleted && blobUrls.length > 0) {
-      await deleteBlobObjects(blobUrls);
-    }
-    return deleted;
+    return (res.rowCount ?? 0) > 0;
   }
 
   /**
@@ -800,6 +811,7 @@ export class TaskService extends BaseService<
   ): Promise<TaskEntity> {
     try {
       this.log('toggleCompletion', { id }, context);
+      await this.ensureStatusColumnExists();
 
       if (context?.userId) {
         const hasAccess = await this.checkOwnership(id, context.userId);
@@ -926,29 +938,6 @@ export class TaskService extends BaseService<
             'AUTHORIZATION_ERROR: Some tasks not found or access denied'
           );
         }
-
-        // The DESTINATION has to be checked too, not just the tasks.
-        //
-        // This verified the tasks were the caller's and then applied
-        // `taskListId` blind. A caller could therefore move their OWN tasks
-        // into another tenant's list: the update passes the tasks policy (they
-        // still own the rows and `userId` is unchanged), the tasks vanish from
-        // every list the caller can see, and when that list's real owner
-        // deletes it `tasks_taskListId_fkey ON DELETE CASCADE` deletes the
-        // caller's tasks. `update()` has validated this since the IDOR sweep —
-        // the same check, on the same table, for the same reason.
-        if (updates.taskListId) {
-          const taskList = await query(
-            'SELECT id FROM "task_lists" WHERE id = $1 AND "userId" = $2 LIMIT 1',
-            [updates.taskListId, context.userId],
-            this.db
-          );
-          if (taskList.rowCount === 0) {
-            throw new Error(
-              'VALIDATION_ERROR: Task list not found or access denied'
-            );
-          }
-        }
       }
 
       // Perform bulk update
@@ -1037,24 +1026,12 @@ export class TaskService extends BaseService<
         }
       }
 
-      // The cascade handles the task_tags and attachments ROWS. It cannot
-      // handle the blob OBJECTS those attachment rows point at — nothing in
-      // Postgres knows they exist — so collect them while the rows are still
-      // there. See TaskService.delete.
-      const blobUrls = context?.userId
-        ? await collectAttachmentBlobUrlsForTasks(ids, context.userId, this.db)
-        : [];
-
       // Perform bulk delete (cascade will handle tags and attachments)
       await query(
         `DELETE FROM tasks WHERE id IN (${ids.map((_, i) => `$${i + 1}`).join(',')})`,
         ids,
         this.db
       );
-
-      if (blobUrls.length > 0) {
-        await deleteBlobObjects(blobUrls);
-      }
 
       this.log('bulkDelete:success', { count: ids.length }, context);
     } catch (error) {

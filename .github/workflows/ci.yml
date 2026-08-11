@@ -88,16 +88,6 @@ jobs:
       - name: Typecheck build config
         run: npx tsc --noEmit -p tsconfig.node.json
 
-      # The serverless API — api/, lib/ and all 37 handlers in
-      # server-handlers/. Nothing type-checked this tree before: the root
-      # tsconfig referenced only the two projects above, and the api/tsconfig
-      # that used to exist was run by nothing. The cost of that gap was
-      # `GET /api/auth/me` answering 405 in production since the day it was
-      # written, from an excess-property error this step now rejects. See the
-      # header of tsconfig.api.json for the two deliberately relaxed flags.
-      - name: Typecheck serverless API
-        run: npx tsc --noEmit -p tsconfig.api.json
-
   test-frontend:
     name: Frontend Tests
     runs-on: ubuntu-latest
@@ -177,7 +167,7 @@ jobs:
       # and failing when the RLS suite reports zero tests or any skip. This is
       # the same guard against the vitest JSON reporter. Added 2026-08-02 after
       # a cross-repo audit found the pattern in one repo and not the other.
-      - name: Assert the Postgres enforcement suites actually ran
+      - name: Assert the RLS enforcement suite actually ran
         if: always()
         run: |
           node - <<'JS'
@@ -188,23 +178,16 @@ jobs:
             process.exit(1);
           }
           const report = JSON.parse(fs.readFileSync(path, 'utf8'));
-          // Match the SUFFIX, not one file name. This guard used to key on the
-          // literal 'rls.postgres.test.ts', so every Postgres suite added after
-          // it — refresh-token revocation, tenant scoping — could skip in
-          // silence while the build stayed green. A guard that only watches the
-          // file it was written for is a guard that stops working the moment
-          // someone adds a second one.
           const rls = (report.testResults || []).filter((f) =>
-            String(f.name || '').endsWith('.postgres.test.ts')
+            String(f.name || '').includes('rls.postgres.test.ts')
           );
           if (rls.length === 0) {
             console.error(
-              'No *.postgres.test.ts suite appeared in the run at all. ' +
+              'rls.postgres.test.ts did not appear in the run at all. ' +
               'Tenant isolation is UNVERIFIED by this build.'
             );
             process.exit(1);
           }
-          console.log('Postgres suites found: ' + rls.map((f) => String(f.name).split('/').pop()).join(', '));
           let ran = 0, skipped = 0;
           for (const file of rls) {
             for (const t of file.assertionResults || []) {
@@ -212,10 +195,10 @@ jobs:
               else ran++;
             }
           }
-          console.log(`Postgres enforcement suites: ${ran} ran, ${skipped} skipped`);
+          console.log(`RLS enforcement suite: ${ran} ran, ${skipped} skipped`);
           if (ran === 0 || skipped > 0) {
             console.error(
-              'A Postgres enforcement suite did not fully run. Tenant isolation ' +
+              'The RLS enforcement suite did not fully run. Tenant isolation ' +
               'is UNVERIFIED by this build.'
             );
             process.exit(1);

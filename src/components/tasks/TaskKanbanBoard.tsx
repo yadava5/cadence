@@ -77,7 +77,7 @@ function getStatusConfig(status: ColumnKey) {
 }
 
 export const TaskKanbanBoard: React.FC = () => {
-  const { tasks, activeTaskGroupId, handleDeleteTask } = useTaskManagement({
+  const { tasks, activeTaskGroupId } = useTaskManagement({
     includeTaskOperations: true,
   });
   const { updateTask } = useTasks();
@@ -323,11 +323,9 @@ export const TaskKanbanBoard: React.FC = () => {
             })
           }
           onEdit={(id, title) => updateTask.mutate({ id, updates: { title } })}
-          // The row menu renders here too (calendarMode is false), so Delete has
-          // to be the same delete the list view offers — undo toast for a plain
-          // task, confirmation for one carrying files. It used to be a no-op
-          // comment, which left the confirm dialog's Delete button doing nothing.
-          onDelete={handleDeleteTask}
+          onDelete={() => {
+            /* hidden in kanban */
+          }}
           onSchedule={() => void 0}
           className="p-0"
           calendarMode={false}

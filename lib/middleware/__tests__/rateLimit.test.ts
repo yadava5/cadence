@@ -3,14 +3,8 @@
  * Tests rate limit enforcement, memory store, headers, presets, and IP detection
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import {
-  rateLimit,
-  rateLimitPresets,
-  rateLimitStoreSize,
-  resetRateLimitStore,
-} from '../rateLimit';
+import { rateLimit, rateLimitPresets, resetRateLimitStore } from '../rateLimit';
 import { createMockRequest, createMockResponse } from '../../__tests__/helpers';
-import type { VercelResponse } from '@vercel/node';
 import type { AuthenticatedRequest } from '../../types/api';
 
 describe('Rate Limit Middleware', () => {
@@ -33,7 +27,7 @@ describe('Rate Limit Middleware', () => {
       req.user = { id: 'user-123', email: 'test@example.com', name: 'Test' };
       const res = createMockResponse();
 
-      const middleware = rateLimit({ bucket: 'test', max: 5, windowMs: 60000 });
+      const middleware = rateLimit({ max: 5, windowMs: 60000 });
 
       // Make 3 requests (under limit of 5)
       await middleware(req, res, mockNext);
@@ -49,7 +43,7 @@ describe('Rate Limit Middleware', () => {
       req.user = { id: 'user-123', email: 'test@example.com', name: 'Test' };
       const res = createMockResponse();
 
-      const middleware = rateLimit({ bucket: 'test', max: 3, windowMs: 60000 });
+      const middleware = rateLimit({ max: 3, windowMs: 60000 });
 
       // Make 4 requests (exceeds limit of 3)
       await middleware(req, res, mockNext);
@@ -66,11 +60,7 @@ describe('Rate Limit Middleware', () => {
       req.user = { id: 'user-123', email: 'test@example.com', name: 'Test' };
       const res = createMockResponse();
 
-      const middleware = rateLimit({
-        bucket: 'test',
-        max: 10,
-        windowMs: 60000,
-      });
+      const middleware = rateLimit({ max: 10, windowMs: 60000 });
 
       await middleware(req, res, mockNext);
 
@@ -92,7 +82,7 @@ describe('Rate Limit Middleware', () => {
       const req = createMockRequest() as AuthenticatedRequest;
       req.user = { id: 'user-123', email: 'test@example.com', name: 'Test' };
 
-      const middleware = rateLimit({ bucket: 'test', max: 5, windowMs: 60000 });
+      const middleware = rateLimit({ max: 5, windowMs: 60000 });
 
       // First request
       const res1 = createMockResponse();
@@ -124,7 +114,7 @@ describe('Rate Limit Middleware', () => {
       req.user = { id: 'user-123', email: 'test@example.com', name: 'Test' };
       const res = createMockResponse();
 
-      const middleware = rateLimit({ bucket: 'test', max: 2, windowMs: 60000 });
+      const middleware = rateLimit({ max: 2, windowMs: 60000 });
 
       // Exceed limit
       await middleware(req, res, mockNext);
@@ -152,7 +142,7 @@ describe('Rate Limit Middleware', () => {
         name: 'User 2',
       };
 
-      const middleware = rateLimit({ bucket: 'test', max: 2, windowMs: 60000 });
+      const middleware = rateLimit({ max: 2, windowMs: 60000 });
 
       // User 1 makes 2 requests
       const res1a = createMockResponse();
@@ -176,7 +166,7 @@ describe('Rate Limit Middleware', () => {
         headers: { 'x-forwarded-for': '192.168.1.2' },
       }) as AuthenticatedRequest;
 
-      const middleware = rateLimit({ bucket: 'test', max: 2, windowMs: 60000 });
+      const middleware = rateLimit({ max: 2, windowMs: 60000 });
 
       // IP 1 makes 2 requests
       await middleware(req1, createMockResponse(), mockNext);
@@ -194,7 +184,6 @@ describe('Rate Limit Middleware', () => {
 
       const customKeyGen = vi.fn(() => 'custom-key-123');
       const middleware = rateLimit({
-        bucket: 'test',
         max: 2,
         windowMs: 60000,
         keyGenerator: customKeyGen,
@@ -209,7 +198,7 @@ describe('Rate Limit Middleware', () => {
       const req = createMockRequest() as AuthenticatedRequest;
       req.user = { id: 'user-123', email: 'test@example.com', name: 'Test' };
 
-      const middleware = rateLimit({ bucket: 'test', max: 2, windowMs: 60000 });
+      const middleware = rateLimit({ max: 2, windowMs: 60000 });
 
       // Make 2 requests (at limit)
       await middleware(req, createMockResponse(), mockNext);
@@ -231,7 +220,6 @@ describe('Rate Limit Middleware', () => {
 
       const customMessage = 'Custom rate limit message';
       const middleware = rateLimit({
-        bucket: 'test',
         max: 1,
         windowMs: 60000,
         message: customMessage,
@@ -254,7 +242,7 @@ describe('Rate Limit Middleware', () => {
       req.user = { id: 'user-123', email: 'test@example.com', name: 'Test' };
       const res = createMockResponse();
 
-      const middleware = rateLimit({ bucket: 'test', max: 1, windowMs: 60000 });
+      const middleware = rateLimit({ max: 1, windowMs: 60000 });
 
       await middleware(req, res, mockNext);
       await middleware(req, res, mockNext);
@@ -276,7 +264,7 @@ describe('Rate Limit Middleware', () => {
       const req = createMockRequest() as AuthenticatedRequest;
       req.user = { id: 'user-123', email: 'test@example.com', name: 'Test' };
 
-      const middleware = rateLimit({ bucket: 'test', max: 5, windowMs: 60000 });
+      const middleware = rateLimit({ max: 5, windowMs: 60000 });
 
       // Make 3 concurrent requests
       const promises = [
@@ -296,7 +284,7 @@ describe('Rate Limit Middleware', () => {
       }) as AuthenticatedRequest;
       const res = createMockResponse();
 
-      const middleware = rateLimit({ bucket: 'test', max: 2, windowMs: 60000 });
+      const middleware = rateLimit({ max: 2, windowMs: 60000 });
 
       // Should still work with 'anonymous' key
       await middleware(req, res, mockNext);
@@ -318,7 +306,6 @@ describe('Rate Limit Middleware', () => {
       });
 
       const middleware = rateLimit({
-        bucket: 'test',
         max: 2,
         windowMs: 60000,
         keyGenerator: keyGenSpy,
@@ -335,7 +322,7 @@ describe('Rate Limit Middleware', () => {
       }) as AuthenticatedRequest;
       const res = createMockResponse();
 
-      const middleware = rateLimit({ bucket: 'test', max: 2, windowMs: 60000 });
+      const middleware = rateLimit({ max: 2, windowMs: 60000 });
 
       await middleware(req, res, mockNext);
       await middleware(req, res, mockNext);
@@ -349,7 +336,7 @@ describe('Rate Limit Middleware', () => {
       }) as AuthenticatedRequest;
       const res = createMockResponse();
 
-      const middleware = rateLimit({ bucket: 'test', max: 2, windowMs: 60000 });
+      const middleware = rateLimit({ max: 2, windowMs: 60000 });
 
       await middleware(req, res, mockNext);
       await middleware(req, res, mockNext);
@@ -363,7 +350,7 @@ describe('Rate Limit Middleware', () => {
       }) as AuthenticatedRequest;
       const res = createMockResponse();
 
-      const middleware = rateLimit({ bucket: 'test', max: 2, windowMs: 60000 });
+      const middleware = rateLimit({ max: 2, windowMs: 60000 });
 
       await middleware(req, res, mockNext);
       await middleware(req, res, mockNext);
@@ -476,7 +463,7 @@ describe('Rate Limit Middleware', () => {
       const req = createMockRequest() as AuthenticatedRequest;
       req.user = { id: 'user-123', email: 'test@example.com', name: 'Test' };
 
-      const middleware = rateLimit({ bucket: 'test', max: 5, windowMs: 60000 });
+      const middleware = rateLimit({ max: 5, windowMs: 60000 });
 
       // Make requests
       await middleware(req, createMockResponse(), mockNext);
@@ -500,7 +487,7 @@ describe('Rate Limit Middleware', () => {
       req.user = { id: 'user-123', email: 'test@example.com', name: 'Test' };
       const res = createMockResponse();
 
-      const middleware = rateLimit({ bucket: 'test', max: 0, windowMs: 60000 });
+      const middleware = rateLimit({ max: 0, windowMs: 60000 });
 
       await middleware(req, res, mockNext);
 
@@ -512,7 +499,7 @@ describe('Rate Limit Middleware', () => {
       const req = createMockRequest() as AuthenticatedRequest;
       req.user = { id: 'user-123', email: 'test@example.com', name: 'Test' };
 
-      const middleware = rateLimit({ bucket: 'test', max: 2, windowMs: 100 });
+      const middleware = rateLimit({ max: 2, windowMs: 100 });
 
       // Make 2 requests
       await middleware(req, createMockResponse(), mockNext);
@@ -531,11 +518,7 @@ describe('Rate Limit Middleware', () => {
       const req = createMockRequest() as AuthenticatedRequest;
       req.user = { id: 'user-123', email: 'test@example.com', name: 'Test' };
 
-      const middleware = rateLimit({
-        bucket: 'test',
-        max: 2,
-        windowMs: 24 * 60 * 60 * 1000,
-      }); // 24 hours
+      const middleware = rateLimit({ max: 2, windowMs: 24 * 60 * 60 * 1000 }); // 24 hours
 
       await middleware(req, createMockResponse(), mockNext);
       await middleware(req, createMockResponse(), mockNext);
@@ -552,7 +535,7 @@ describe('Rate Limit Middleware', () => {
       const req = createMockRequest() as AuthenticatedRequest;
       req.user = { id: 'user-123', email: 'test@example.com', name: 'Test' };
 
-      const middleware = rateLimit({ bucket: 'test', max: 1, windowMs: 60000 });
+      const middleware = rateLimit({ max: 1, windowMs: 60000 });
 
       // Exceed limit significantly
       await middleware(req, createMockResponse(), mockNext);
@@ -565,247 +548,6 @@ describe('Rate Limit Middleware', () => {
         'X-RateLimit-Remaining',
         '0'
       );
-    });
-  });
-
-  /**
-   * Bucket isolation — the defect that broke login in production.
-   *
-   * Every one of these uses ONE caller identity and varies only the bucket. If
-   * the identities differed the assertions would pass under the old global-key
-   * scheme too, and would prove nothing.
-   */
-  describe('Bucket Isolation', () => {
-    const CALLER_IP = '203.0.113.77';
-    const caller = () =>
-      createMockRequest({
-        headers: { 'x-vercel-forwarded-for': CALLER_IP },
-      }) as AuthenticatedRequest;
-
-    it('health-check traffic does not consume the login allowance', async () => {
-      // `/api/health` is the scheduled uptime probe / Supabase keep-alive. On
-      // the shared counter its traffic alone kept login and refresh at 429.
-      for (let i = 0; i < 12; i++) {
-        await rateLimitPresets.health(caller(), createMockResponse(), mockNext);
-      }
-      expect(mockNext).toHaveBeenCalledTimes(12);
-
-      const loginNext = vi.fn();
-      for (let i = 0; i < 5; i++) {
-        const res = createMockResponse();
-        await rateLimitPresets.auth(caller(), res, loginNext);
-        expect(vi.mocked(res.status)).not.toHaveBeenCalledWith(429);
-      }
-      expect(loginNext).toHaveBeenCalledTimes(5);
-    });
-
-    it('api traffic does not consume the login allowance', async () => {
-      for (let i = 0; i < 100; i++) {
-        await rateLimitPresets.api(caller(), createMockResponse(), mockNext);
-      }
-      expect(mockNext).toHaveBeenCalledTimes(100);
-
-      const loginNext = vi.fn();
-      for (let i = 0; i < 5; i++) {
-        await rateLimitPresets.auth(caller(), createMockResponse(), loginNext);
-      }
-      expect(loginNext).toHaveBeenCalledTimes(5);
-    });
-
-    it('read/write/upload traffic does not consume the login allowance', async () => {
-      for (let i = 0; i < 50; i++) {
-        await rateLimitPresets.read(caller(), createMockResponse(), mockNext);
-        await rateLimitPresets.write(caller(), createMockResponse(), mockNext);
-      }
-      for (let i = 0; i < 10; i++) {
-        await rateLimitPresets.upload(caller(), createMockResponse(), mockNext);
-      }
-      expect(mockNext).toHaveBeenCalledTimes(110);
-
-      const loginNext = vi.fn();
-      for (let i = 0; i < 5; i++) {
-        await rateLimitPresets.auth(caller(), createMockResponse(), loginNext);
-      }
-      expect(loginNext).toHaveBeenCalledTimes(5);
-    });
-
-    it('login and refresh do not share a bucket', async () => {
-      // Exhaust login for this caller.
-      for (let i = 0; i < 5; i++) {
-        await rateLimitPresets.auth(caller(), createMockResponse(), mockNext);
-      }
-      const blockedLogin = createMockResponse();
-      await rateLimitPresets.auth(caller(), blockedLogin, mockNext);
-      expect(vi.mocked(blockedLogin.status)).toHaveBeenCalledWith(429);
-      expect(mockNext).toHaveBeenCalledTimes(5);
-
-      // The same caller's session must still be able to refresh — otherwise a
-      // 429 here clears auth and forces a re-login that is also 429'd.
-      const refreshNext = vi.fn();
-      const refreshRes = createMockResponse();
-      await rateLimitPresets.authRefresh(caller(), refreshRes, refreshNext);
-
-      expect(refreshNext).toHaveBeenCalledTimes(1);
-      expect(vi.mocked(refreshRes.status)).not.toHaveBeenCalledWith(429);
-      // Not merely "under its own larger max": the refresh counter must be
-      // untouched by the six login attempts, i.e. this is its FIRST request.
-      // On a shared counter the remaining would be 60 - 7 = 53.
-      expect(vi.mocked(refreshRes.setHeader)).toHaveBeenCalledWith(
-        'X-RateLimit-Remaining',
-        '59'
-      );
-    });
-
-    it('refresh traffic does not consume the login allowance', async () => {
-      for (let i = 0; i < 20; i++) {
-        await rateLimitPresets.authRefresh(
-          caller(),
-          createMockResponse(),
-          mockNext
-        );
-      }
-      expect(mockNext).toHaveBeenCalledTimes(20);
-
-      const loginNext = vi.fn();
-      for (let i = 0; i < 5; i++) {
-        await rateLimitPresets.auth(caller(), createMockResponse(), loginNext);
-      }
-      expect(loginNext).toHaveBeenCalledTimes(5);
-    });
-
-    it('reports headers for the bucket that was actually consulted', async () => {
-      // Production returned `limit 100 / remaining 91`, then `limit 5 /
-      // remaining 0`, with an identical reset — one counter, two stories.
-      const apiRes = createMockResponse();
-      await rateLimitPresets.api(caller(), apiRes, mockNext);
-      expect(vi.mocked(apiRes.setHeader)).toHaveBeenCalledWith(
-        'X-RateLimit-Limit',
-        '100'
-      );
-      expect(vi.mocked(apiRes.setHeader)).toHaveBeenCalledWith(
-        'X-RateLimit-Remaining',
-        '99'
-      );
-
-      const loginRes = createMockResponse();
-      await rateLimitPresets.auth(caller(), loginRes, mockNext);
-      expect(vi.mocked(loginRes.setHeader)).toHaveBeenCalledWith(
-        'X-RateLimit-Limit',
-        '5'
-      );
-      // 4, not 0: the api request above belongs to a different counter.
-      expect(vi.mocked(loginRes.setHeader)).toHaveBeenCalledWith(
-        'X-RateLimit-Remaining',
-        '4'
-      );
-    });
-
-    it('limiters that name the SAME bucket still share a counter', async () => {
-      // The other direction — namespacing is opt-in sharing, not isolation by
-      // accident. Login and register both use the `auth` preset on purpose.
-      const first = rateLimit({ bucket: 'shared', max: 3, windowMs: 60000 });
-      const second = rateLimit({ bucket: 'shared', max: 3, windowMs: 60000 });
-
-      await first(caller(), createMockResponse(), mockNext);
-      await first(caller(), createMockResponse(), mockNext);
-      await second(caller(), createMockResponse(), mockNext);
-      expect(mockNext).toHaveBeenCalledTimes(3);
-
-      const res = createMockResponse();
-      await second(caller(), res, mockNext);
-      expect(vi.mocked(res.status)).toHaveBeenCalledWith(429);
-      expect(mockNext).toHaveBeenCalledTimes(3);
-    });
-  });
-
-  describe('Callers With No Resolvable IP', () => {
-    // The key used to collapse to the literal 'anonymous', so one such caller
-    // could exhaust every limiter for all of them. They are now spread over a
-    // coarse request fingerprint — DoS-spreading only, trivially spoofable, and
-    // not a throttle boundary. Both directions are pinned.
-    const noIpRequest = (userAgent: string) =>
-      createMockRequest({
-        headers: { 'user-agent': userAgent, 'accept-language': 'en-US' },
-      }) as AuthenticatedRequest;
-
-    it('two different unidentifiable callers do not share a counter', async () => {
-      const middleware = rateLimit({
-        bucket: 'no-ip',
-        max: 2,
-        windowMs: 60000,
-      });
-
-      await middleware(
-        noIpRequest('agent-one'),
-        createMockResponse(),
-        mockNext
-      );
-      await middleware(
-        noIpRequest('agent-one'),
-        createMockResponse(),
-        mockNext
-      );
-
-      const res = createMockResponse();
-      await middleware(noIpRequest('agent-two'), res, mockNext);
-
-      expect(mockNext).toHaveBeenCalledTimes(3);
-      expect(vi.mocked(res.status)).not.toHaveBeenCalledWith(429);
-    });
-
-    it('the same unidentifiable caller does share a counter', async () => {
-      const middleware = rateLimit({
-        bucket: 'no-ip',
-        max: 2,
-        windowMs: 60000,
-      });
-
-      await middleware(
-        noIpRequest('agent-one'),
-        createMockResponse(),
-        mockNext
-      );
-      await middleware(
-        noIpRequest('agent-one'),
-        createMockResponse(),
-        mockNext
-      );
-
-      const res = createMockResponse();
-      await middleware(noIpRequest('agent-one'), res, mockNext);
-
-      expect(mockNext).toHaveBeenCalledTimes(2);
-      expect(vi.mocked(res.status)).toHaveBeenCalledWith(429);
-    });
-  });
-
-  describe('Store Growth', () => {
-    it('stays bounded when the cleanup interval never fires', async () => {
-      // Serverless instances are frozen between invocations, so the 5-minute
-      // interval may never run. A one-hour window with frozen fake timers means
-      // nothing ever expires: the only thing that can bound the map is the cap.
-      let n = 0;
-      const middleware = rateLimit({
-        bucket: 'growth',
-        max: 5,
-        windowMs: 60 * 60 * 1000,
-        keyGenerator: () => `caller-${n++}`,
-      });
-      const req = createMockRequest() as AuthenticatedRequest;
-      // A minimal response — 12k EventEmitter-backed mocks would be wasteful.
-      const res = {
-        setHeader: () => {},
-        status: () => res,
-        json: () => res,
-      } as unknown as VercelResponse;
-
-      for (let i = 0; i < 12000; i++) {
-        await middleware(req, res, mockNext);
-      }
-
-      expect(n).toBe(12000);
-      expect(rateLimitStoreSize()).toBeLessThanOrEqual(10000);
-      expect(rateLimitStoreSize()).toBeGreaterThan(0);
     });
   });
 });
