@@ -98,6 +98,19 @@ jobs:
       - name: Typecheck serverless API
         run: npx tsc --noEmit -p tsconfig.api.json
 
+      # Typechecking the API proves it is well-typed, NOT that it is loadable.
+      # On 2026-08-11 a deleted api/tsconfig.json sent the builder to the
+      # solution-style root config, which names no module format, so the
+      # function was emitted as CommonJS into a "type": "module" package and
+      # every /api route answered FUNCTION_INVOCATION_FAILED. The front end
+      # deployed fine and all eleven checks here were green, because no job
+      # asked what the function compiles TO. This one does, in ~1s, by emitting
+      # the real entrypoint and reading the artifact. Verified in both
+      # directions before it was added: it fails on the tree that caused the
+      # outage and passes on the fix.
+      - name: Check the serverless function compiles to a loadable module
+        run: npm run check:serverless
+
   test-frontend:
     name: Frontend Tests
     runs-on: ubuntu-latest
