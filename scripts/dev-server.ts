@@ -2,29 +2,15 @@
  * Local development API server
  * Run with: npx tsx scripts/dev-server.ts
  */
-import { readFileSync, existsSync } from 'fs';
-import { resolve } from 'path';
 
-// Load env files before importing anything else
-function loadEnv() {
-  const envFiles = ['.env', '.env.local'];
-  for (const file of envFiles) {
-    const path = resolve(process.cwd(), file);
-    if (existsSync(path)) {
-      const content = readFileSync(path, 'utf-8');
-      for (const line of content.split('\n')) {
-        const trimmed = line.trim();
-        if (trimmed && !trimmed.startsWith('#')) {
-          const [key, ...valueParts] = trimmed.split('=');
-          if (key && valueParts.length > 0) {
-            process.env[key.trim()] = valueParts.join('=').trim();
-          }
-        }
-      }
-    }
-  }
-}
-loadEnv();
+// MUST STAY FIRST. `./load-env` populates process.env as an import side effect,
+// and imports are evaluated in source order — which is the only ordering that
+// gets `.env.local` read before `packages/backend/src/utils/jwt.ts` (imported
+// below, transitively too) throws on a missing JWT_SECRET at module load. The
+// env loading used to be a function call in this file's body, which ESM
+// guarantees runs LAST, after every import has already been evaluated; see
+// load-env.ts for the full account.
+import './load-env';
 
 import express from 'express';
 import cors from 'cors';
@@ -554,10 +540,12 @@ app.post('/api/auth/refresh', async (req, res) => {
 app.post('/api/auth/logout', async (req, res) => {
   try {
     const { refreshToken, logoutAll } = req.body;
+    // Awaited: revocation is a row in `refresh_tokens` (migration 0005), not a
+    // per-process Set, so it has to finish before we answer "logged out".
     if (logoutAll) {
-      refreshTokenService.invalidateAllUserTokens(devContext.userId);
+      await refreshTokenService.invalidateAllUserTokens(devContext.userId);
     } else {
-      refreshTokenService.invalidateRefreshToken(refreshToken);
+      await refreshTokenService.invalidateRefreshToken(refreshToken);
     }
     res.json({ success: true, data: { message: 'Logged out successfully' } });
   } catch {

@@ -378,13 +378,20 @@ describe('TaskService', () => {
 
   describe('delete', () => {
     it('should delete a task owned by the user', async () => {
-      // Scoped DELETE matches one row → true.
-      mockedQuery.mockResolvedValueOnce(createQueryResult([], 1));
+      // Call 0 is now the attachment blob-URL collection, which has to happen
+      // BEFORE the delete: attachments cascade with the task, so afterwards
+      // nothing records which public blobs belonged to it.
+      mockedQuery
+        .mockResolvedValueOnce(createQueryResult([], 0))
+        // Scoped DELETE matches one row → true.
+        .mockResolvedValueOnce(createQueryResult([], 1));
 
       const result = await taskService.delete('task-123', mockContext);
 
       expect(result).toBe(true);
-      const [sql, params] = mockedQuery.mock.calls[0];
+      const [collectSql] = mockedQuery.mock.calls[0];
+      expect(collectSql).toContain('FROM attachments a');
+      const [sql, params] = mockedQuery.mock.calls[1];
       expect(sql).toContain(
         'DELETE FROM tasks WHERE id = $1 AND "userId" = $2'
       );
@@ -395,7 +402,9 @@ describe('TaskService', () => {
       // SECURITY: the DELETE is scoped to the authenticated user. Another
       // user's (or a non-existent) task matches no row → false, which the route
       // maps to 404. Guards against a cross-tenant IDOR delete.
-      mockedQuery.mockResolvedValueOnce(createQueryResult([], 0));
+      mockedQuery
+        .mockResolvedValueOnce(createQueryResult([], 0))
+        .mockResolvedValueOnce(createQueryResult([], 0));
 
       const result = await taskService.delete('non-existent', mockContext);
 

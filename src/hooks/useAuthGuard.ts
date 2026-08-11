@@ -133,9 +133,17 @@ export function useAuthGuard(
             }
           }
 
-          // Verify token with backend (optional, can be expensive)
-          // Skip verification for mock tokens in development
-          const isMockToken = jwtTokens?.accessToken === 'mock-access-token';
+          // Verify token with backend (optional, can be expensive).
+          //
+          // The dev-only mock session (src/components/dev/DevAuthToggle.tsx)
+          // carries a token no backend will ever accept, so it skips the
+          // round-trip. `import.meta.env.DEV` is a compile-time constant: in a
+          // production build this folds to `false` and the whole branch —
+          // including the token literal — is eliminated by the bundler. It must
+          // stay the FIRST operand for that folding to happen.
+          const isMockToken =
+            import.meta.env.DEV &&
+            jwtTokens?.accessToken === 'mock-access-token';
           if (authMethod === 'jwt' && jwtTokens && !isMockToken) {
             try {
               const verification = await authAPI.verifyToken(
@@ -165,10 +173,7 @@ export function useAuthGuard(
             }
           } else if (isMockToken) {
             // Reduce noisy logs in dev; log only once per mount/session
-            if (
-              process.env.NODE_ENV !== 'production' &&
-              !hasLoggedMockSkipRef.current
-            ) {
+            if (!hasLoggedMockSkipRef.current) {
               console.debug(
                 'Mock token detected, skipping backend verification'
               );

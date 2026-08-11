@@ -6,6 +6,12 @@ import { Task, TaskTag } from '@shared/types';
 import { UseMutationResult } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
+import {
+  deletedLabel,
+  taskRestoreCompletion,
+  taskRestoreData,
+  UNDO_WINDOW_MS,
+} from '@/lib/undoDelete';
 
 // Legacy/foreign data can store a named icon identifier (e.g. "briefcase")
 // in the same column the emoji-mart picker uses for a real emoji glyph. If
@@ -289,9 +295,41 @@ export function useTaskManagement(
       }
     : undefined;
 
+  /**
+   * Delete a task and offer it back for a few seconds.
+   *
+   * The row leaves immediately (the mutation is optimistic) and the toast is
+   * the only record that it went, so it names the task and carries Undo.
+   * Because the endpoint hard-deletes, Undo re-creates the task from the
+   * snapshot taken here: list, due date, priority, tags and the original
+   * quick-add text all come back, and completion is re-applied afterwards
+   * because a created task always starts incomplete. See src/lib/undoDelete.ts
+   * for what a restore cannot carry (files, and the original ids/timestamps);
+   * tasks with files are gated behind a confirmation in TaskItem instead.
+   */
   const handleDeleteTask = includeTaskOperations
     ? (id: string) => {
+        const deleted = tasks.find((t) => t.id === id);
         deleteTask.mutate(id);
+
+        if (!deleted) return;
+
+        const restore = async () => {
+          try {
+            const created = await addTask.mutateAsync(taskRestoreData(deleted));
+            const completion = taskRestoreCompletion(deleted);
+            if (completion) {
+              updateTask.mutate({ id: created.id, updates: completion });
+            }
+          } catch {
+            // addTask's own onError has already surfaced the reason.
+          }
+        };
+
+        toast(deletedLabel(deleted.title, 'task'), {
+          duration: UNDO_WINDOW_MS,
+          action: { label: 'Undo', onClick: () => void restore() },
+        });
       }
     : undefined;
 

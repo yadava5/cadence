@@ -7,7 +7,7 @@ import { sendSuccess, sendError } from '../../lib/middleware/errorHandler.js';
 import { HttpMethod } from '../../lib/types/api.js';
 import type { AuthenticatedRequest } from '../../lib/types/api.js';
 import type { VercelResponse } from '@vercel/node';
-import type { UpdateTaskDTO } from '../../lib/services/TaskService';
+import type { UpdateTaskDTO } from '../../lib/services/TaskService.js';
 import {
   UnauthorizedError,
   ValidationError,

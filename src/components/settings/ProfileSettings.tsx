@@ -78,6 +78,14 @@ const profileFormSchema = z.object({
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
+/**
+ * The timezone the app actually schedules in: the device's. Resolved the same
+ * way every scheduling surface resolves it, so the copy under the (disabled)
+ * timezone control states the truth rather than the intent.
+ */
+const deviceTimezone =
+  Intl.DateTimeFormat().resolvedOptions().timeZone || 'your local timezone';
+
 export function ProfileSettings() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
@@ -315,7 +323,12 @@ export function ProfileSettings() {
                 )}
               />
 
-              {/* Timezone Field */}
+              {/* Timezone Field — deliberately disabled. Nothing reads this
+                  value: every scheduling surface resolves the timezone from the
+                  device instead (e.g. ScheduleMeetingDialog's
+                  Intl.DateTimeFormat().resolvedOptions().timeZone). Rather than
+                  leave a control that silently does nothing, it stays visible
+                  and inert with the truth written under it. */}
               <FormField
                 control={form.control}
                 name="timezone"
@@ -325,8 +338,9 @@ export function ProfileSettings() {
                     <FormControl>
                       <select
                         {...field}
-                        disabled={isSubmitting}
-                        className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                        disabled
+                        aria-describedby="timezone-not-applied"
+                        className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <option value="">Select timezone...</option>
                         {TIMEZONE_OPTIONS.map((tz) => (
@@ -336,8 +350,10 @@ export function ProfileSettings() {
                         ))}
                       </select>
                     </FormControl>
-                    <FormDescription>
-                      Your local timezone for scheduling and notifications
+                    <FormDescription id="timezone-not-applied">
+                      Scheduling and reminders use this device&rsquo;s timezone
+                      ({deviceTimezone}). A per-account timezone is not applied
+                      yet, so this setting has no effect.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

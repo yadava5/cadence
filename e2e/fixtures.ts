@@ -2,18 +2,21 @@ import { test as base, expect, type Page } from '@playwright/test';
 
 /**
  * A JWT session shaped exactly like the app's zustand `auth-store` persist blob
- * (src/stores/authStore.ts). `accessToken: 'mock-access-token'` makes the auth
- * guard (src/hooks/useAuthGuard.ts) skip its /api/auth/verify round-trip, so the
- * app boots authenticated with no backend. `expiresAt` is stamped far in the
- * future inside the init script (it must be, or onRehydrateStorage clears it).
+ * (src/stores/authStore.ts). The token is an ordinary opaque string: the auth
+ * guard's old `accessToken === 'mock-access-token'` skip is gone from
+ * production builds (it is now behind `import.meta.env.DEV`, and Playwright
+ * drives a `vite preview` production build), so the session survives by
+ * answering /api/auth/verify in `forceOfflineMode` instead. `expiresAt` is
+ * stamped far in the future inside the init script (it must be, or
+ * onRehydrateStorage clears it).
  */
 export const SESSION = {
   state: {
     isAuthenticated: true,
     authMethod: 'jwt' as const,
     jwtTokens: {
-      accessToken: 'mock-access-token',
-      refreshToken: 'mock-refresh-token',
+      accessToken: 'e2e-access-token',
+      refreshToken: 'e2e-refresh-token',
       expiresAt: 0,
     },
     user: {
@@ -33,11 +36,35 @@ export const SESSION = {
  * Force offline/localStorage mode: every /api/** call resolves to a non-JSON
  * body, so the service layer's `isJson(res)` guard is false and it uses its
  * localStorage fallback store. No live backend, no rate limit, deterministic.
+ *
+ * The one exception is /api/auth/verify, which the auth guard calls on boot for
+ * any JWT session: a non-JSON body makes `authAPI.verifyToken()` throw inside
+ * its own try/catch and return `{ valid: false }`, which clears the session and
+ * bounces the test to /login. It is answered here with the real endpoint's
+ * success shape (see server-handlers/auth/verify.ts). Handled inside this one
+ * matcher rather than as a second `page.route()` so nothing depends on handler
+ * registration order.
  */
 export async function forceOfflineMode(page: Page) {
-  await page.route('**/api/**', (route) =>
-    route.fulfill({ status: 200, contentType: 'text/plain', body: '' })
-  );
+  await page.route('**/api/**', (route) => {
+    if (/\/api\/auth\/verify(\?|$)/.test(route.request().url())) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            user: {
+              id: SESSION.state.user.id,
+              email: SESSION.state.user.email,
+              name: SESSION.state.user.name,
+            },
+          },
+        }),
+      });
+    }
+    return route.fulfill({ status: 200, contentType: 'text/plain', body: '' });
+  });
 }
 
 /**

@@ -1,6 +1,30 @@
 {
+  // DO NOT DELETE THIS FILE, and do not assume `tsconfig.api.json` replaces it.
+  //
+  // The two configs answer different questions and both are needed:
+  //
+  //   tsconfig.api.json  — "does this code type-check?", run by CI.
+  //   api/tsconfig.json  — "how does Vercel COMPILE the deployed function?",
+  //                        read by @vercel/node because it sits next to the
+  //                        entrypoint.
+  //
+  // Deleting this file on 2026-08-11 took the production API down. Every /api
+  // route returned FUNCTION_INVOCATION_FAILED, which is a crash at module load
+  // rather than in a handler, and the front end deployed fine so the outage was
+  // invisible until the API was actually called. The builder fell back to the
+  // root tsconfig.json, which is solution-style (`"files": []`, only
+  // references) and states no `module` or `moduleResolution` at all, so the
+  // NodeNext settings below stopped applying and the `.js`-suffixed ESM
+  // specifiers throughout `server-handlers/` and `lib/` no longer resolved at
+  // runtime.
+  //
+  // Nothing local catches this: the typecheck project passes, the Vite build
+  // never touches `api/`, and no test loads the function the way the runtime
+  // does. The only gate that sees it is calling a deployed /api route, which is
+  // why the live verification script exists.
   "compilerOptions": {
     "target": "ES2022",
+    // Load-bearing. See above.
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "lib": ["ES2022"],

@@ -297,8 +297,9 @@ router.post(
       // Update password
       await authService.updatePassword(user.id, newPassword);
 
-      // Invalidate all refresh tokens for security
-      refreshTokenService.invalidateAllUserTokens(user.id);
+      // Invalidate all refresh tokens for security (durable since 0005 — await
+      // it, or the response promises a revocation that has not been written)
+      await refreshTokenService.invalidateAllUserTokens(user.id);
 
       res.json({
         success: true,
@@ -632,7 +633,10 @@ router.post(
 router.post(
   '/logout',
   authenticateToken as unknown as RequestHandler,
-  (req: Request & { token?: string }, res: Response) => {
+  async (
+    req: Request & { user?: { id: string }; token?: string },
+    res: Response
+  ) => {
     try {
       const { refreshToken } = req.body as { refreshToken?: string };
       const accessToken = req.token as string;
@@ -640,9 +644,13 @@ router.post(
       // Blacklist access token
       tokenBlacklistService.blacklistToken(accessToken);
 
-      // Invalidate refresh token if provided
+      // Invalidate refresh token if provided. Scoped to the caller's own id so
+      // one authenticated user cannot revoke another's session.
       if (refreshToken) {
-        refreshTokenService.invalidateRefreshToken(refreshToken);
+        await refreshTokenService.invalidateRefreshToken(
+          refreshToken,
+          req.user?.id
+        );
       }
 
       res.json({
@@ -671,7 +679,10 @@ router.post(
 router.post(
   '/logout-all',
   authenticateToken as unknown as RequestHandler,
-  (req: Request & { user?: { id: string }; token?: string }, res: Response) => {
+  async (
+    req: Request & { user?: { id: string }; token?: string },
+    res: Response
+  ) => {
     try {
       const user = req.user!;
       const accessToken = req.token as string;
@@ -680,7 +691,7 @@ router.post(
       tokenBlacklistService.blacklistToken(accessToken);
 
       // Invalidate all refresh tokens for this user
-      refreshTokenService.invalidateAllUserTokens(user.id);
+      await refreshTokenService.invalidateAllUserTokens(user.id);
 
       res.json({
         success: true,
@@ -751,7 +762,7 @@ router.get(
 router.get(
   '/stats',
   authenticateToken as unknown as RequestHandler,
-  (_req: Request, res: Response) => {
+  async (_req: Request, res: Response) => {
     // Only allow this for development or admin users
     if (process.env.NODE_ENV === 'production') {
       return res.status(403).json({
@@ -765,7 +776,9 @@ router.get(
     }
 
     const blacklistStats = tokenBlacklistService.getStats();
-    const refreshTokenStats = refreshTokenService.getStats();
+    // Reads `refresh_tokens` now, so it is a promise — without the await this
+    // endpoint reported `{}` for every counter.
+    const refreshTokenStats = await refreshTokenService.getStats();
 
     res.json({
       success: true,

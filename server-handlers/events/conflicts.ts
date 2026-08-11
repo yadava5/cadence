@@ -13,6 +13,23 @@ import {
   ForbiddenError,
   InternalServerError,
 } from '../../lib/types/api.js';
+import { z } from 'zod';
+import { dateTimeField } from '../../lib/middleware/validation.js';
+
+/**
+ * Gate only — the handler keeps reading `req.query`, and keeps producing its
+ * own "start/end are required" 400. What this adds is that a *present but
+ * malformed* value no longer reaches `new Date()` at line 62 and comes back as
+ * a 500 from the driver.
+ */
+const conflictsQuerySchema = z.object({
+  start: dateTimeField('start').optional(),
+  end: dateTimeField('end').optional(),
+  startTime: dateTimeField('startTime').optional(),
+  endTime: dateTimeField('endTime').optional(),
+  excludeEventId: z.string().optional(),
+  calendarId: z.string().optional(),
+});
 
 export default createMethodHandler(
   {
@@ -91,5 +108,8 @@ export default createMethodHandler(
       }
     },
   },
-  { requireAuth: true }
+  {
+    requireAuth: true,
+    validate: { [HttpMethod.GET]: { query: conflictsQuerySchema } },
+  }
 );

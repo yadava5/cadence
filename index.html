@@ -2,7 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <!-- The caret-on-timeline mark. Browsers that support SVG favicons take
+         cadence-mark.svg; Safari and older engines fall back to the .ico
+         (16/32/48). The tile is opaque near-black, so it reads in both light
+         and dark browser chrome. -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/svg+xml" href="/cadence-mark.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0a0a0b" />
     <title>Cadence — calendar & tasks</title>
