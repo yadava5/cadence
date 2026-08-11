@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 import {
   Calendar as CalendarIcon,
   CalendarDays as CalendarNameIcon,
@@ -32,6 +33,11 @@ import {
   useDeleteEvent,
 } from '@/hooks/useEvents';
 import { toHumanText, clampRRuleUntil } from '@/utils/recurrence';
+import {
+  deletedLabel,
+  eventRestoreData,
+  UNDO_WINDOW_MS,
+} from '@/lib/undoDelete';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -264,6 +270,15 @@ export function EventDisplayDialog({
     }
   }, [event, onEdit, handleClose]);
 
+  /**
+   * Delete the event and offer it back for a few seconds.
+   *
+   * The dialog closes at once and the row leaves the calendar optimistically,
+   * so the toast is the only record that it went. The endpoint hard-deletes,
+   * so Undo re-creates the event from this snapshot; every column the events
+   * table has round-trips through create, so the restored event differs from
+   * the original only in its id. See src/lib/undoDelete.ts.
+   */
   const handleDelete = React.useCallback(async () => {
     if (!event) return;
 
@@ -273,12 +288,25 @@ export function EventDisplayDialog({
       // Trigger optimistic delete; close immediately for snappy UX
       deleteEventMutation.mutate(event.id);
       handleClose();
+
+      const restore = async () => {
+        try {
+          await createEventMutation.mutateAsync(eventRestoreData(event));
+        } catch {
+          // createEvent's own onError has already surfaced the reason.
+        }
+      };
+
+      toast(deletedLabel(event.title, 'event'), {
+        duration: UNDO_WINDOW_MS,
+        action: { label: 'Undo', onClick: () => void restore() },
+      });
     } catch (error) {
       console.error('Failed to delete event:', error);
     } finally {
       setIsDeleting(false);
     }
-  }, [event, deleteEventMutation, handleClose]);
+  }, [event, deleteEventMutation, createEventMutation, handleClose]);
 
   const togglePeekMode = React.useCallback(() => {
     setPeekMode(peekMode === 'center' ? 'right' : 'center');

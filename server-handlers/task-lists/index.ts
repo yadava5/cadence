@@ -9,7 +9,7 @@ import type { VercelResponse } from '@vercel/node';
 import type {
   CreateTaskListDTO,
   TaskListFilters,
-} from '../../lib/services/TaskListService';
+} from '../../lib/services/TaskListService.js';
 import {
   UnauthorizedError,
   ValidationError,

@@ -38,6 +38,12 @@ vi.mock('../../../lib/middleware/auth.js', async (importOriginal) => {
   };
 });
 
+// Every method here must exist on the real `TaskListService`. It used to carry
+// a `setDefault: vi.fn()` that the real service has never had, which is exactly
+// why `PATCH ?action=set-default` passed its tests while throwing
+// `TypeError: taskListService.setDefault is not a function` — a 500 — in
+// production. A hand-written mock is only as good as its fidelity to the thing
+// it stands in for.
 const mockTaskListService = {
   findAll: vi.fn(),
   getWithTaskCount: vi.fn(),
@@ -45,7 +51,6 @@ const mockTaskListService = {
   findById: vi.fn(),
   update: vi.fn(),
   delete: vi.fn(),
-  setDefault: vi.fn(),
 };
 
 const mockServices = {
@@ -438,23 +443,30 @@ describe('Task Lists API Integration Tests', () => {
   });
 
   describe('PATCH /api/task-lists/[id]', () => {
-    it('should set task list as default', async () => {
+    it('rejects action=set-default with a named 400', async () => {
+      // `TaskListService` has `getDefault` and no `setDefault` — the branch was
+      // copied from the calendars handler, where `CalendarService.setDefault`
+      // does exist. In production this threw a TypeError and answered 500.
+      // Nothing in `src/` sends this action for task lists (only
+      // `calendars/{id}?action=set-default` is used), so it now fails closed
+      // and honestly rather than growing an unrequested feature.
       const req = createMockAuthRequest(mockUser, {
         method: 'PATCH',
         query: { id: 'list-123', action: 'set-default' },
       });
       const res = createMockResponse();
 
-      const defaultTaskList = { ...mockTaskList, isDefault: true };
-      mockTaskListService.setDefault.mockResolvedValue(defaultTaskList);
-
       await taskListHandler(req, res);
 
-      expect(mockTaskListService.setDefault).toHaveBeenCalledWith('list-123', {
-        userId: 'user-123',
-        requestId: 'test-request-123',
-      });
-      expect(mockSendSuccess).toHaveBeenCalledWith(res, defaultTaskList);
+      expect(mockSendError).toHaveBeenCalledWith(
+        res,
+        expect.objectContaining({
+          statusCode: 400,
+          code: 'VALIDATION_ERROR',
+        })
+      );
+      expect(mockSendSuccess).not.toHaveBeenCalled();
+      expect(mockTaskListService.update).not.toHaveBeenCalled();
     });
 
     it('should perform regular patch update when no action specified', async () => {
@@ -483,13 +495,16 @@ describe('Task Lists API Integration Tests', () => {
     });
 
     it('should return 404 for non-existent task list', async () => {
+      // Was routed through `action=set-default`, a branch that could only ever
+      // throw; the 404 it means to cover belongs to the regular patch path.
       const req = createMockAuthRequest(mockUser, {
         method: 'PATCH',
-        query: { id: 'non-existent', action: 'set-default' },
+        query: { id: 'non-existent' },
+        body: { name: 'Whatever' },
       });
       const res = createMockResponse();
 
-      mockTaskListService.setDefault.mockResolvedValue(null);
+      mockTaskListService.update.mockResolvedValue(null);
 
       await taskListHandler(req, res);
 

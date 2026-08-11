@@ -6,7 +6,7 @@ import { getAllServices } from '../../lib/services/index.js';
 import { sendSuccess, sendError } from '../../lib/middleware/errorHandler.js';
 import type { AuthenticatedRequest } from '../../lib/types/api.js';
 import type { VercelResponse } from '@vercel/node';
-import type { UpdateEventDTO } from '../../lib/services/EventService';
+import type { UpdateEventDTO } from '../../lib/services/EventService.js';
 import {
   UnauthorizedError,
   ValidationError,

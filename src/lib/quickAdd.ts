@@ -8,6 +8,7 @@
  */
 import type { ParsedTag, Priority } from '@shared/types';
 import type { SmartParser as SmartParserType } from '@/components/smart-input/parsers/SmartParser';
+import { buildTaskTitle } from '@/lib/parsedTitle';
 
 export interface QuickAddResult {
   /** Cleaned, capitalized title (parsed tokens removed). Falls back to raw. */
@@ -85,31 +86,15 @@ export async function parseQuickAdd(query: string): Promise<QuickAddResult> {
       }
     }
 
-    // Build the title by removing the date/time and priority spans, plus any
-    // explicit `#hashtag` spans, from the original text. We deliberately keep
-    // people/label/project words (e.g. "lunch with Sam") in the title — the NLP
-    // pipeline's cleanText strips those too, which would leave a meaningless
-    // title like "With" — but an explicit `#tag` is chip-only, never title text.
-    const spansToRemove = result.tags
-      .filter(
-        (t) =>
-          t.type === 'date' ||
-          t.type === 'time' ||
-          t.type === 'priority' ||
-          t.source === 'hashtag-parser'
-      )
-      .sort((a, b) => b.startIndex - a.startIndex);
-    let cleaned = raw;
-    for (const tag of spansToRemove) {
-      cleaned = cleaned.slice(0, tag.startIndex) + cleaned.slice(tag.endIndex);
-    }
-    cleaned = cleaned
-      .replace(/\s{2,}/g, ' ')
-      .replace(/\s+([,.:;])/g, '$1')
-      .trim();
+    // Build the title with the shared rules (see buildTaskTitle): date/time
+    // annotations, `#hashtag` chips and explicit priority markers come out;
+    // people/label/project words (e.g. "lunch with Sam") stay, because the NLP
+    // pipeline's cleanText strips those too and would leave a meaningless
+    // title like "With".
+    const cleaned = buildTaskTitle(raw, result.tags);
 
     return {
-      title: capitalize(cleaned || result.cleanText.trim() || raw),
+      title: capitalize(cleaned || raw),
       hasWhen: Boolean(start),
       start,
       end,

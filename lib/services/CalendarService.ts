@@ -419,7 +419,7 @@ export class CalendarService extends BaseService<
 
         if (firstCalendar) {
           // Set first calendar as default
-          const updated = await query(
+          const updated = await query<CalendarEntity>(
             'UPDATE calendars SET "isDefault" = true, "updatedAt" = NOW() WHERE id = $1 RETURNING *',
             [firstCalendar.id],
             this.db
@@ -694,9 +694,7 @@ export class CalendarService extends BaseService<
         );
       }
 
-      const byId = new Map(
-        userCalendars.rows.map((row: { id: string }) => [row.id, row])
-      );
+      const byId = new Map(userCalendars.rows.map((row) => [row.id, row]));
       const results = calendarIds
         .map((id) => byId.get(id))
         .filter(Boolean)

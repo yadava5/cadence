@@ -156,6 +156,15 @@ const TaskListComponent: React.FC<TaskListProps> = ({
     taskGroups.find((group) => group.id === activeTaskGroupId) ||
     (taskGroups.length > 0 ? taskGroups[0] : defaultTaskGroup);
 
+  // This pane only ever shows one list (except for the 'all'/'default' aliases,
+  // which show everything — see the filter below). The heading must say which,
+  // in every state: it used to read "Upcoming Tasks" when the active list was
+  // empty, which claimed there was nothing due while other lists' tasks were
+  // on screen beside it.
+  const showsEveryList =
+    activeTaskGroupId === 'all' || activeTaskGroupId === 'default';
+  const scopeLabel = showsEveryList ? 'All Tasks' : activeTaskGroup.name;
+
   // Filter tasks by active task group and separate active/completed with stable references
   const { activeTasks, completedTasks } = useMemo(() => {
     // Filter tasks by active task group
@@ -196,16 +205,20 @@ const TaskListComponent: React.FC<TaskListProps> = ({
     const tasksForCalendar = activeTasks.slice(0, maxTasks);
     const totalCount = activeTasks.length;
 
-    // Group tasks by scheduled date (canonical due date for tasks)
+    // Group tasks by scheduled date (canonical due date for tasks). allDayAware
+    // so a date-only due date groups under the day it names, not the day the
+    // viewer's timezone happens to shift UTC midnight into.
     const grouped = groupItemsByDate(
       tasksForCalendar,
-      (task) => task.scheduledDate ?? null
+      (task) => task.scheduledDate ?? null,
+      { allDayAware: true }
     );
 
     // Compute totals across all active tasks (not truncated) for accurate badges
     const groupedAll = groupItemsByDate(
       activeTasks,
-      (task) => task.scheduledDate ?? null
+      (task) => task.scheduledDate ?? null,
+      { allDayAware: true }
     );
     const totals = Object.keys(groupedAll).reduce<Record<string, number>>(
       (acc, key) => {
@@ -315,13 +328,17 @@ const TaskListComponent: React.FC<TaskListProps> = ({
           <div className="flex items-center gap-2">
             <CheckSquare className="w-4 h-4 text-sidebar-foreground" />
             <h3 className="text-sm font-semibold text-sidebar-foreground">
-              {activeTaskGroupId === 'all' ? 'All Tasks' : 'Upcoming Tasks'}
+              {scopeLabel}
             </h3>
           </div>
 
           <div className="text-center py-4 text-muted-foreground">
             <CheckSquare className="w-6 h-6 mx-auto mb-2 opacity-50" />
-            <p className="text-xs">No upcoming tasks</p>
+            <p className="text-xs">
+              {showsEveryList
+                ? 'No tasks yet'
+                : `No tasks in ${activeTaskGroup.name}`}
+            </p>
           </div>
         </div>
       );
@@ -365,9 +382,7 @@ const TaskListComponent: React.FC<TaskListProps> = ({
               containerClassName="inline-block"
             >
               <div className="text-sm font-semibold text-sidebar-foreground cursor-help select-none">
-                {activeTaskGroupId === 'all'
-                  ? 'All Tasks'
-                  : activeTaskGroup.name}
+                {scopeLabel}
               </div>
             </CursorTooltip>
           </div>
@@ -518,9 +533,7 @@ const TaskListComponent: React.FC<TaskListProps> = ({
                 containerClassName="inline-block"
               >
                 <div className="text-sm font-semibold text-sidebar-foreground cursor-help select-none">
-                  {activeTaskGroupId === 'all'
-                    ? 'All Tasks'
-                    : activeTaskGroup.name}
+                  {scopeLabel}
                 </div>
               </CursorTooltip>
             </div>

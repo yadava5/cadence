@@ -36,6 +36,7 @@ type TaskGroup = {
   description?: string;
 };
 import { cn } from '@/lib/utils';
+import { buildTaskTitle } from '@/lib/parsedTitle';
 import { DueDateBadge } from '@/components/tasks/DueDateBadge';
 
 export interface EnhancedTaskInputProps {
@@ -288,7 +289,21 @@ export const EnhancedTaskInput: React.FC<EnhancedTaskInputProps> = ({
     (e?: React.FormEvent) => {
       e?.preventDefault();
 
-      const titleToUse = inputText.trim();
+      // Strip the spans that became structured fields (due date/time, hashtag
+      // chips, explicit priority markers) out of the title — see
+      // buildTaskTitle. Date/time tags come from `parsedTags` because they are
+      // never shown as dismissible chips; the rest come from `filteredTags`,
+      // so a chip the user dismissed stays in the title.
+      const dateTimeTags = (parsedTags ?? []).filter(
+        (tag) => tag.type === 'date' || tag.type === 'time'
+      );
+      const titleSpanTags = smartParsingEnabled
+        ? [...dateTimeTags, ...filteredTags]
+        : [];
+      const titleToUse =
+        titleSpanTags.length > 0
+          ? buildTaskTitle(inputText, titleSpanTags)
+          : inputText.trim();
 
       if (titleToUse) {
         // Capitalize first letter

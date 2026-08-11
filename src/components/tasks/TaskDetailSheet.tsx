@@ -18,6 +18,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { IntegratedActionBar } from '@/components/dialogs/IntegratedActionBar';
 import { cn } from '@/lib/utils';
+import { formatDueDate, isAllDayDate } from '@/utils/dueDate';
 import type { FileAttachment, Task } from '@shared/types';
 import { useUIStore } from '@/stores/uiStore';
 import AttachmentPreviewDialog from './AttachmentPreviewDialog';
@@ -40,13 +41,6 @@ function getTagIcon(type: string) {
     default:
       return TagIcon;
   }
-}
-
-function isSameDay(date: Date) {
-  const now = new Date(date);
-  return (
-    now.getHours() === 0 && now.getMinutes() === 0 && now.getSeconds() === 0
-  );
 }
 
 export interface TaskDetailSheetProps {
@@ -222,15 +216,15 @@ export const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({
           {task.scheduledDate && (
             <div className="flex items-center gap-3">
               <div className="text-muted-foreground flex-shrink-0">
-                {isSameDay(task.scheduledDate) ? (
+                {isAllDayDate(task.scheduledDate) ? (
                   <CalendarIcon className="h-4 w-4" />
                 ) : (
                   <ClockIcon className="h-4 w-4" />
                 )}
               </div>
               <div className="flex-1 text-sm font-medium">
-                <span>{format(task.scheduledDate, 'MMM dd, yyyy')}</span>
-                {!isSameDay(task.scheduledDate) && (
+                <span>{formatDueDate(task.scheduledDate, 'medium')}</span>
+                {!isAllDayDate(task.scheduledDate) && (
                   <span className="ml-2 text-muted-foreground">
                     {format(task.scheduledDate, 'h:mm a')}
                   </span>
