@@ -11,16 +11,28 @@
  *     plus a `health` and a `test` diagnostic (36 − 2 = 34). All 34 still
  *     bundle into one catch-all function, well under Vercel Hobby's
  *     12-function cap.
- *   · "1,186 tests" is a MEASURED figure, not a reported one: both vitest
- *     projects were run and their summaries added — 635 (vitest.config.ts,
- *     58 files) + 551 (vitest.backend.config.ts, 25 files) = 1,186, 0 skipped.
- *     It was 1,185 until 2026-08-08. The +1 is the regression test for
- *     GET /api/tags, which had answered 500 for every user since the commit
- *     that added TagService: the query selected two columns `tags` never
- *     had. Its 28 unit tests passed throughout — and still pass with the bug
- *     reinstated — because their fixtures never reach Postgres, so the new
- *     test runs the service against the REAL schema in a real postgres:16.
- *     Re-measured at cadence abaaea8, CI run 31233308044, all five jobs green.
+ *   · "1,430 tests" is a MEASURED figure, not a reported one: both vitest
+ *     projects were run and their summaries added — 772 (vitest.config.ts,
+ *     69 files) + 658 (vitest.backend.config.ts, 33 files) = 1,430, 0 skipped.
+ *     Read off CI run 31464527681 at cadence 6d09ee4 (2026-08-11), all six
+ *     jobs green: the frontend job printed `Tests 772 passed (772)` under
+ *     `Test Files 69 passed (69)`, the backend job `Tests 658 passed (658)`
+ *     under `Test Files 33 passed (33)`, and neither summary line carried a
+ *     "skipped" segment. docs/readme-facts.json in the same repo records the
+ *     identical figures, recorded 2026-08-11 by scripts/readme-facts.mjs.
+ *
+ *     The figure's history is kept rather than overwritten, because each one
+ *     is pinned to the run that produced it:
+ *       — 1,185 until 2026-08-08. The +1 that made it 1,186 is the regression
+ *         test for GET /api/tags, which had answered 500 for every user since
+ *         the commit that added TagService: the query selected two columns
+ *         `tags` never had. Its 28 unit tests passed throughout — and still
+ *         pass with the bug reinstated — because their fixtures never reach
+ *         Postgres, so the new test runs the service against the REAL schema
+ *         in a real postgres:16.
+ *       — 1,186 (635 frontend across 58 files + 551 backend across 25) at
+ *         cadence abaaea8, CI run 31233308044, all five jobs green.
+ *
  *     The app itself no longer publishes a precise number (Welcome.tsx now
  *     says "1,000+ tests, green"), so re-running the two suites is the only
  *     reproduction of this figure. Static `it()/test()` counting is NOT used
@@ -69,7 +81,7 @@ export const MASTHEAD = {
 export const ABSTRACT = {
   greeting: "Welcome.",
   body:
-    "Every calendar app hands you a form: title, date, start, end, priority, list. Cadence deletes the form. You type one plain sentence — “Lunch with Sam tomorrow 1pm” — and a three-stage parser reads the time, the priority, and the language, shows you its reading as chips, then files it as an event or a task on the week. Behind it: a React 19 app, one serverless dispatcher, a CA-pinned Postgres, and 1,186 tests.",
+    "Every calendar app hands you a form: title, date, start, end, priority, list. Cadence deletes the form. You type one plain sentence — “Lunch with Sam tomorrow 1pm” — and a three-stage parser reads the time, the priority, and the language, shows you its reading as chips, then files it as an event or a task on the week. Behind it: a React 19 app, one serverless dispatcher, a CA-pinned Postgres, and 1,430 tests.",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -141,7 +153,7 @@ export const TOC = {
     WHY: "the form is the friction",
     HOW: "chrono · compromise · priority",
     INSIDE: "one dispatcher, pinned TLS",
-    PROOF: "1,186 tests, and the receipts",
+    PROOF: "1,430 tests, and the receipts",
     BUILD: "the stack and the journey",
   } as Record<string, string>,
   chapterGlyphs: {
@@ -164,7 +176,7 @@ export const TOC = {
   atAGlance: [
     { key: "3 stages", val: "chrono · compromise · priority rules." },
     { key: "1 function", val: "34 handlers behind one Vercel dispatcher." },
-    { key: "1,186 tests", val: "green · strict headers · zero third-party." },
+    { key: "1,430 tests", val: "green · strict headers · zero third-party." },
   ],
   glossary: [
     { term: "chrono", def: "natural-language date/time parser." },
@@ -479,22 +491,22 @@ export const INSIDE = {
 // ---------------------------------------------------------------------------
 
 export const PROOF = {
-  divider: { subtitle: "1,186 tests, a live parse showcase, and a calendar that folds to fit" },
+  divider: { subtitle: "1,430 tests, a live parse showcase, and a calendar that folds to fit" },
 
   tests: {
     eyebrow: "§04 · THE NUMBER",
-    headline: "1,186 tests, green.",
-    hero: "1,186",
+    headline: "1,430 tests, green.",
+    hero: "1,430",
     heroLabel: "tests passing · frontend + backend",
     body:
-      "Correctness is not asserted, it is run. Both vitest projects were run to produce this figure — 1,186 passing tests across the parser, the API handlers, the services, and the React UI — with strict security headers and zero third-party network calls as standing invariants, not aspirations.",
-    exact: "1,186 green · 635 frontend + 551 backend · 0 skipped",
+      "Correctness is not asserted, it is run. Both vitest projects were run to produce this figure — 1,430 passing tests across the parser, the API handlers, the services, and the React UI — with strict security headers and zero third-party network calls as standing invariants, not aspirations.",
+    exact: "1,430 green · 772 frontend + 658 backend · 0 skipped",
     ciValue: "0",
     ciLabel: "third-party calls — CSP connect-src 'self'",
     ciBody:
       "The Content-Security-Policy pins connect-src to 'self', so the running app cannot phone home: no analytics, no fonts-CDN, no external inference. The tests and the headers are the receipts the landing page prints.",
     source:
-      "source · vitest.config.ts + vitest.backend.config.ts, measured 2026-08-06 · vercel.json (CSP connect-src 'self')",
+      "source · vitest.config.ts + vitest.backend.config.ts, measured 2026-08-11 · vercel.json (CSP connect-src 'self')",
   },
 
   parse: {
