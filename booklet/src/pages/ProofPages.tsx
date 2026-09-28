@@ -221,22 +221,22 @@ export const ProofTestsPage: React.FC<PageProps> = (p) => {
         <FigureCard
           label="where the tests live"
           source="measured vitest run"
-          caption="Both suites were run and their summaries added: vitest.config.ts reports 635 tests across 58 files, vitest.backend.config.ts 551 across 25, none skipped. Re-run the two configs and the split reproduces exactly."
+          caption="Both suites were run and their summaries added: vitest.config.ts reports 772 tests across 69 files, vitest.backend.config.ts 658 across 33, none skipped. Re-run the two configs and the split reproduces exactly."
         >
           <Donut
             segments={[
               {
-                value: 635,
+                value: 772,
                 color: COLORS.EMERALD_400,
                 label: 'frontend · React UI',
               },
               {
-                value: 551,
+                value: 658,
                 color: COLORS.EMERALD_700,
                 label: 'backend · handlers',
               },
             ]}
-            centerValue="1,186"
+            centerValue="1,430"
             centerSub="MEASURED"
           />
         </FigureCard>
