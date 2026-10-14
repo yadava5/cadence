@@ -179,10 +179,7 @@ export const SmartTaskInput: React.FC<SmartTaskInputProps> = ({
           // Extract priority from tags
           const priorityTag = tags.find((tag) => tag.type === 'priority');
           const priority = priorityTag?.value as
-            | 'low'
-            | 'medium'
-            | 'high'
-            | undefined;
+            'low' | 'medium' | 'high' | undefined;
 
           // Extract scheduled date from date/time tags
           const dateTag = tags.find(

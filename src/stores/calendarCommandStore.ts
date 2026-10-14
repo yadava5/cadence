@@ -6,10 +6,7 @@ import type { CalendarEvent } from '@shared/types';
  * no import cycle back into the calendar components.
  */
 export type CalendarViewType =
-  | 'dayGridMonth'
-  | 'timeGridWeek'
-  | 'timeGridDay'
-  | 'listWeek';
+  'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'listWeek';
 
 /**
  * Imperative intents the command palette (or any caller) can hand to the

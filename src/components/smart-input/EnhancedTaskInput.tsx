@@ -317,10 +317,7 @@ export const EnhancedTaskInput: React.FC<EnhancedTaskInputProps> = ({
             (tag) => tag.type === 'priority'
           );
           const priority = priorityTag?.value as
-            | 'low'
-            | 'medium'
-            | 'high'
-            | undefined;
+            'low' | 'medium' | 'high' | undefined;
 
           const parsedDateTag = parsedTags?.find(
             (tag) => tag.type === 'date' || tag.type === 'time'

@@ -140,9 +140,7 @@ export const TaskFocusPane: React.FC<TaskFocusPaneProps> = ({ className }) => {
     const tryFocus = () => {
       for (const id of focusTargets) {
         const el = document.getElementById(id) as
-          | HTMLTextAreaElement
-          | HTMLInputElement
-          | null;
+          HTMLTextAreaElement | HTMLInputElement | null;
         if (el) {
           el.focus();
           if ('select' in el && typeof el.select === 'function') {

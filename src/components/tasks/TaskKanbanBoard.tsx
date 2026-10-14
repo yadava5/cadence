@@ -155,8 +155,7 @@ export const TaskKanbanBoard: React.FC = () => {
   const handleDragEnd = (event: DragEndEvent) => {
     const { activeId, originalColumn } = dragState;
     const overData = event.over?.data?.current as
-      | { columnKey?: ColumnKey }
-      | undefined;
+      { columnKey?: ColumnKey } | undefined;
     const overKey = overData?.columnKey;
 
     // Validate move

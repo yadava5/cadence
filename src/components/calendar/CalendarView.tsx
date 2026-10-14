@@ -28,10 +28,7 @@ import { useCalendarSettingsStore } from '@/stores/calendarSettingsStore';
  * Calendar view types
  */
 export type CalendarViewType =
-  | 'dayGridMonth'
-  | 'timeGridWeek'
-  | 'timeGridDay'
-  | 'listWeek';
+  'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'listWeek';
 
 // Cohesive event palette — events without an explicit event/calendar color
 // get a stable, pleasant hue (hashed from their id) instead of one flat blue,

@@ -203,9 +203,8 @@ describe('Attachments API', () => {
       events['data']?.forEach((fn) => fn(buf));
       events['end']?.forEach((fn) => fn());
       await p;
-      const { sendSuccess } = await import(
-        '../../../lib/middleware/errorHandler.js'
-      );
+      const { sendSuccess } =
+        await import('../../../lib/middleware/errorHandler.js');
       expect(vi.mocked(sendSuccess)).toHaveBeenCalled();
       const call = vi.mocked(sendSuccess).mock.calls[0];
       expect(call).toBeTruthy();

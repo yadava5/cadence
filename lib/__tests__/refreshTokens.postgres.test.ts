@@ -151,9 +151,8 @@ describe.skipIf(!ADMIN_URL)('refresh token revocation (real Postgres)', () => {
     process.env.DATABASE_URL = appUrl.toString();
     (globalThis as { __backendPgPool?: Pool }).__backendPgPool = undefined;
 
-    const svcmod = await import(
-      '../../packages/backend/src/services/RefreshTokenService.js'
-    );
+    const svcmod =
+      await import('../../packages/backend/src/services/RefreshTokenService.js');
     const jwtmod = await import('../../packages/backend/src/utils/jwt.js');
     const dbmod = await import('../../packages/backend/src/config/database.js');
     RefreshTokenService = svcmod.default as unknown as new () => Service;

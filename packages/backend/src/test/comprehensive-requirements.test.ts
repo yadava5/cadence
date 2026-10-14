@@ -471,17 +471,15 @@ describe('Comprehensive Requirements 1-4 Testing', () => {
 
     describe('1.4 & 1.5: Google OAuth2 Integration', () => {
       it('should be properly configured for OAuth', async () => {
-        const { GoogleOAuthService } = await import(
-          '../services/GoogleOAuthService.js'
-        );
+        const { GoogleOAuthService } =
+          await import('../services/GoogleOAuthService.js');
         const googleOAuthService = new GoogleOAuthService();
         expect(googleOAuthService.isConfigured()).toBe(true);
       });
 
       it('should generate OAuth authorization URL', async () => {
-        const { GoogleOAuthService } = await import(
-          '../services/GoogleOAuthService.js'
-        );
+        const { GoogleOAuthService } =
+          await import('../services/GoogleOAuthService.js');
         const googleOAuthService = new GoogleOAuthService();
         const authUrl = googleOAuthService.getAuthUrl();
 
@@ -491,9 +489,8 @@ describe('Comprehensive Requirements 1-4 Testing', () => {
       });
 
       it('should handle OAuth callback flow', async () => {
-        const { GoogleOAuthService } = await import(
-          '../services/GoogleOAuthService.js'
-        );
+        const { GoogleOAuthService } =
+          await import('../services/GoogleOAuthService.js');
         const googleOAuthService = new GoogleOAuthService();
 
         const result =

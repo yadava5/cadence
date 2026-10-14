@@ -10,13 +10,7 @@ import {
 import { query, withTransaction } from '../config/database.js';
 
 export type TagType =
-  | 'DATE'
-  | 'TIME'
-  | 'PRIORITY'
-  | 'LOCATION'
-  | 'PERSON'
-  | 'LABEL'
-  | 'PROJECT';
+  'DATE' | 'TIME' | 'PRIORITY' | 'LOCATION' | 'PERSON' | 'LABEL' | 'PROJECT';
 
 /**
  * `tags` is the one entity in this service layer with NO timestamps, so it
@@ -265,8 +259,8 @@ export class TagService extends BaseService<
 
       const needsUsageJoin = Boolean(
         scopedFilters.withUsageCount ||
-          scopedFilters.minUsageCount !== undefined ||
-          scopedFilters.unused !== undefined
+        scopedFilters.minUsageCount !== undefined ||
+        scopedFilters.unused !== undefined
       );
       let usageJoin = '';
       let usageSelect = '';

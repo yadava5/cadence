@@ -331,13 +331,7 @@ function getClientIP(req: AuthenticatedRequest): string | undefined {
 
 /** Names of the shipped presets. Each one owns a bucket of the same name. */
 export type RateLimitPresetName =
-  | 'auth'
-  | 'authRefresh'
-  | 'api'
-  | 'read'
-  | 'write'
-  | 'upload'
-  | 'health';
+  'auth' | 'authRefresh' | 'api' | 'read' | 'write' | 'upload' | 'health';
 
 /**
  * Predefined rate limit configurations

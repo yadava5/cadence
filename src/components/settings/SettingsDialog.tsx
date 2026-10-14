@@ -14,11 +14,7 @@ import { HelpSettings } from './HelpSettings';
 import { CalendarSettings } from './CalendarSettings';
 
 export type SettingsSection =
-  | 'general'
-  | 'profile'
-  | 'preferences'
-  | 'help'
-  | 'calendar';
+  'general' | 'profile' | 'preferences' | 'help' | 'calendar';
 
 interface SettingsDialogProps {
   open: boolean;

@@ -32,12 +32,10 @@ vi.mock('../../../lib/config/database.js', () => ({
 
 process.env.JWT_SECRET ??= 'test-secret-at-least-32-characters-long!!';
 
-const { generateAccessToken } = await import(
-  '../../../packages/backend/src/utils/jwt.js'
-);
-const { createMockRequest, createMockResponse } = await import(
-  '../../../lib/__tests__/helpers/mockRequest.js'
-);
+const { generateAccessToken } =
+  await import('../../../packages/backend/src/utils/jwt.js');
+const { createMockRequest, createMockResponse } =
+  await import('../../../lib/__tests__/helpers/mockRequest.js');
 const meHandler = (await import('../me.js')).default;
 
 const USER = {

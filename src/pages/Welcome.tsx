@@ -1253,8 +1253,8 @@ function SignatureEnding() {
       >
         <div className="pt-20 text-center">
           <p className="mb-6 font-mono text-[0.65rem] uppercase tracking-[0.3em] text-[#63666c]">
-            <span className="text-emerald-500/80">✳</span> · the last sentence
-            · click to file another
+            <span className="text-emerald-500/80">✳</span> · the last sentence ·
+            click to file another
           </p>
 
           {/* The sentence — collapses toward the week below. */}

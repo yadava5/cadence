@@ -56,13 +56,7 @@ export type Priority = 'low' | 'medium' | 'high';
 export interface TaskTag {
   id: string;
   type:
-    | 'date'
-    | 'time'
-    | 'priority'
-    | 'location'
-    | 'person'
-    | 'label'
-    | 'project';
+    'date' | 'time' | 'priority' | 'location' | 'person' | 'label' | 'project';
   value: string | Date | Priority;
   displayText: string;
   iconName: string;
@@ -127,13 +121,7 @@ export interface GoogleAuthState {
 
 // Smart parsing types
 export type TagType =
-  | 'date'
-  | 'time'
-  | 'priority'
-  | 'location'
-  | 'person'
-  | 'label'
-  | 'project';
+  'date' | 'time' | 'priority' | 'location' | 'person' | 'label' | 'project';
 
 export interface ParsedTag extends TaskTag {
   startIndex: number;

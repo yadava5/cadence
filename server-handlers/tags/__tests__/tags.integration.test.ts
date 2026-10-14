@@ -61,9 +61,8 @@ vi.mocked(getAllServices).mockReturnValue(
 );
 
 // Import mocked functions
-const { sendSuccess, sendError } = await import(
-  '../../../lib/middleware/errorHandler.js'
-);
+const { sendSuccess, sendError } =
+  await import('../../../lib/middleware/errorHandler.js');
 vi.mocked(sendSuccess).mockImplementation(mockSendSuccess);
 vi.mocked(sendError).mockImplementation((res, error) => {
   mockSendError(res, {
