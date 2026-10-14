@@ -65,8 +65,12 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
       if (isImage) {
         try {
           const sharpMod = await import('sharp');
+          // `typeof import('sharp')` is the module NAMESPACE under 0.35, which
+          // ships `export default sharp` — so the namespace is not callable and
+          // the cast has to name the default export. The runtime expression is
+          // unchanged: `.default` under ESM, the module itself under CJS.
           const sharp = (sharpMod.default ??
-            sharpMod) as typeof import('sharp');
+            sharpMod) as typeof import('sharp').default;
 
           const optimized = await sharp(body)
             .rotate()
@@ -144,7 +148,9 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     if (contentType.startsWith('image/')) {
       try {
         const sharpMod = await import('sharp');
-        const sharp = (sharpMod.default ?? sharpMod) as typeof import('sharp');
+        // Same cast as the dev path above: the default export, not the namespace.
+        const sharp = (sharpMod.default ??
+          sharpMod) as typeof import('sharp').default;
 
         const base =
           filename.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '') ||
