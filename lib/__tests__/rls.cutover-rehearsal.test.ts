@@ -155,12 +155,10 @@ describe.skipIf(!ADMIN_URL)(
       // The classes, instantiated here — the handlers reach them through
       // ServiceFactory, but the constructor is the same code path and this keeps
       // the rehearsal from depending on factory initialisation order.
-      const { CalendarService } = await import(
-        '../services/CalendarService.js'
-      );
-      const { TaskListService } = await import(
-        '../services/TaskListService.js'
-      );
+      const { CalendarService } =
+        await import('../services/CalendarService.js');
+      const { TaskListService } =
+        await import('../services/TaskListService.js');
       const { TaskService } = await import('../services/TaskService.js');
       calendarService = new CalendarService();
       taskListService = new TaskListService();

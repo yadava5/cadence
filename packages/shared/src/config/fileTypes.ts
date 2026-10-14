@@ -9,11 +9,7 @@
  * File type categories
  */
 export type FileTypeCategory =
-  | 'images'
-  | 'documents'
-  | 'audio'
-  | 'video'
-  | 'archives';
+  'images' | 'documents' | 'audio' | 'video' | 'archives';
 
 /**
  * Preview capability types

@@ -113,8 +113,7 @@ const chooseDelete = async (user: ReturnType<typeof userEvent.setup>) => {
 const lastToastOptions = () => {
   const calls = vi.mocked(toast).mock.calls;
   return calls[calls.length - 1]?.[1] as
-    | { action?: { label: string; onClick: () => void } }
-    | undefined;
+    { action?: { label: string; onClick: () => void } } | undefined;
 };
 
 describe('deleting a task from the kanban board', () => {

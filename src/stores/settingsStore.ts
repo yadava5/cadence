@@ -4,10 +4,7 @@ import { devtools, persist } from 'zustand/middleware';
 export type DateDisplayMode = 'relative' | 'absolute';
 export type AppViewMode = 'calendar' | 'task';
 export type CalendarSubView =
-  | 'dayGridMonth'
-  | 'timeGridWeek'
-  | 'timeGridDay'
-  | 'listWeek';
+  'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'listWeek';
 export type SavedTaskGrouping = 'taskList' | 'dueDate' | 'priority';
 export type TaskCompletionControl = 'checkbox' | 'status-tag';
 export type DefaultViewPreference = 'calendar' | 'tasks' | 'last-used';

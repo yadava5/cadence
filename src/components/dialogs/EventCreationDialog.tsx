@@ -567,11 +567,7 @@ function EventCreationDialogContent({
 
   // Get current frequency from recurrence string
   const currentFrequency = useMemo(():
-    | 'none'
-    | 'daily'
-    | 'weekly'
-    | 'monthly'
-    | 'yearly' => {
+    'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' => {
     if (!formData.recurrence) return 'none';
     const parsed = parseRRule(formData.recurrence);
     return parsed ? parsed.frequency : 'none';

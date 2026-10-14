@@ -274,7 +274,7 @@ export default function RecurrenceSection(props: RecurrenceSectionProps) {
                   value="nth"
                   checked={Boolean(
                     opts.monthlyBySetPos &&
-                      typeof opts.monthlyWeekday === 'number'
+                    typeof opts.monthlyWeekday === 'number'
                   )}
                   onClick={() => handleMonthModeChange('nthWeekday')}
                 />

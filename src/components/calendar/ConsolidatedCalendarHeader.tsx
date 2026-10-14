@@ -43,10 +43,7 @@ import {
  * Calendar view types
  */
 export type CalendarViewType =
-  | 'dayGridMonth'
-  | 'timeGridWeek'
-  | 'timeGridDay'
-  | 'listWeek';
+  'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'listWeek';
 
 export type { CalendarFilterState } from './calendarFilters';
 

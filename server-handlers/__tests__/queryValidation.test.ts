@@ -46,12 +46,10 @@ vi.mock('../../lib/config/database.js', () => ({
 
 process.env.JWT_SECRET ??= 'test-secret-at-least-32-characters-long!!';
 
-const { generateAccessToken } = await import(
-  '../../packages/backend/src/utils/jwt.js'
-);
-const { createMockRequest, createMockResponse } = await import(
-  '../../lib/__tests__/helpers/mockRequest.js'
-);
+const { generateAccessToken } =
+  await import('../../packages/backend/src/utils/jwt.js');
+const { createMockRequest, createMockResponse } =
+  await import('../../lib/__tests__/helpers/mockRequest.js');
 const events = (await import('../events/index.js')).default;
 const conflicts = (await import('../events/conflicts.js')).default;
 const tasks = (await import('../tasks/index.js')).default;

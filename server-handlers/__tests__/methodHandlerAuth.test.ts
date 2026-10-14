@@ -43,12 +43,10 @@ vi.mock('../../lib/config/database.js', () => ({
 
 process.env.JWT_SECRET ??= 'test-secret-at-least-32-characters-long!!';
 
-const { generateAccessToken } = await import(
-  '../../packages/backend/src/utils/jwt.js'
-);
-const { createMockRequest, createMockResponse } = await import(
-  '../../lib/__tests__/helpers/mockRequest.js'
-);
+const { generateAccessToken } =
+  await import('../../packages/backend/src/utils/jwt.js');
+const { createMockRequest, createMockResponse } =
+  await import('../../lib/__tests__/helpers/mockRequest.js');
 const tasksStats = (await import('../tasks/stats.js')).default;
 
 const USER = { id: 'user-1', email: 'a@example.com' };
@@ -106,9 +104,8 @@ describe('routes that must stay public', () => {
   it('the health check answers without a token', async () => {
     // The Supabase keep-alive and the uptime monitor both probe this
     // unauthenticated. If auth ever becomes the default here, they go dark.
-    const { healthCheckHandler, __resetHealthProbeForTests } = await import(
-      '../../lib/utils/apiHandler.js'
-    );
+    const { healthCheckHandler, __resetHealthProbeForTests } =
+      await import('../../lib/utils/apiHandler.js');
     __resetHealthProbeForTests();
 
     const req = createMockRequest({ method: 'GET', url: '/api/health' });

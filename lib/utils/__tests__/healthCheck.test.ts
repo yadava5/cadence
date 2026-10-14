@@ -18,17 +18,14 @@ vi.mock('../../config/database.js', () => ({
 
 const { query } = await import('../../config/database.js');
 const mockedQuery = vi.mocked(query);
-const { healthCheckHandler, __resetHealthProbeForTests } = await import(
-  '../apiHandler.js'
-);
+const { healthCheckHandler, __resetHealthProbeForTests } =
+  await import('../apiHandler.js');
 
-const { createMockRequest, createMockResponse } = await import(
-  '../../__tests__/helpers/mockRequest.js'
-);
+const { createMockRequest, createMockResponse } =
+  await import('../../__tests__/helpers/mockRequest.js');
 
-const { rateLimitPresets, resetRateLimitStore } = await import(
-  '../../middleware/rateLimit.js'
-);
+const { rateLimitPresets, resetRateLimitStore } =
+  await import('../../middleware/rateLimit.js');
 
 /** Reuses the shared EventEmitter-backed mocks so the middleware chain runs. */
 function mockReqRes(headers?: Record<string, string>) {
@@ -48,8 +45,7 @@ function mockReqRes(headers?: Record<string, string>) {
     },
     get data() {
       const payload = vi.mocked(res.json).mock.calls.at(-1)?.[0] as
-        | { data?: Record<string, unknown> }
-        | undefined;
+        { data?: Record<string, unknown> } | undefined;
       return payload?.data ?? {};
     },
   };
