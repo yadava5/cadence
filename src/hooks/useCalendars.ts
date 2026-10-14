@@ -92,7 +92,8 @@ export const useCalendars = () => {
     Parameters<typeof calendarApi.createCalendar>[0],
     { previousCalendars?: Calendar[]; tempId?: string }
   >({
-    mutationFn: calendarApi.createCalendar,
+    mutationFn: (data: Parameters<typeof calendarApi.createCalendar>[0]) =>
+      calendarApi.createCalendar(data),
     onMutate: async (variables) => {
       await queryClient.cancelQueries({ queryKey: calendarQueryKeys.all });
       const previousCalendars = queryClient.getQueryData<Calendar[]>(
@@ -204,7 +205,8 @@ export const useCalendars = () => {
 
   // Delete calendar mutation
   const deleteCalendar = useMutation({
-    mutationFn: calendarApi.deleteCalendar,
+    mutationFn: (calendarName: string) =>
+      calendarApi.deleteCalendar(calendarName),
     onMutate: async (calendarName) => {
       await queryClient.cancelQueries({ queryKey: calendarQueryKeys.all });
       const previousCalendars = queryClient.getQueryData<Calendar[]>(
@@ -238,7 +240,8 @@ export const useCalendars = () => {
 
   // Toggle calendar visibility mutation
   const toggleCalendar = useMutation({
-    mutationFn: calendarApi.toggleCalendarVisibility,
+    mutationFn: (calendarName: string) =>
+      calendarApi.toggleCalendarVisibility(calendarName),
     onMutate: async (calendarName) => {
       await queryClient.cancelQueries({ queryKey: calendarQueryKeys.all });
       const previousCalendars = queryClient.getQueryData<Calendar[]>(
@@ -374,7 +377,8 @@ export const useCreateCalendar = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: calendarApi.createCalendar,
+    mutationFn: (data: Parameters<typeof calendarApi.createCalendar>[0]) =>
+      calendarApi.createCalendar(data),
     onSuccess: (newCalendar) => {
       // Invalidate and refetch calendar queries
       queryClient.invalidateQueries({ queryKey: calendarQueryKeys.all });
@@ -464,7 +468,8 @@ export const useDeleteCalendar = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: calendarApi.deleteCalendar,
+    mutationFn: (calendarName: string) =>
+      calendarApi.deleteCalendar(calendarName),
     onMutate: async (calendarName) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: calendarQueryKeys.all });
@@ -511,7 +516,8 @@ export const useToggleCalendarVisibility = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: calendarApi.toggleCalendarVisibility,
+    mutationFn: (calendarName: string) =>
+      calendarApi.toggleCalendarVisibility(calendarName),
     onMutate: async (calendarName) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: calendarQueryKeys.all });
@@ -559,7 +565,8 @@ export const useSetDefaultCalendar = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: calendarApi.setDefaultCalendar,
+    mutationFn: (calendarName: string) =>
+      calendarApi.setDefaultCalendar(calendarName),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: calendarQueryKeys.all });
     },
