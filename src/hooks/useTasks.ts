@@ -92,7 +92,7 @@ export const useTasks = (filters: TaskFilters = {}) => {
     CreateTaskData,
     { previousTasks?: Task[]; tempId?: string }
   >({
-    mutationFn: taskApi.createTask,
+    mutationFn: (variables) => taskApi.createTask(variables),
     onMutate: async (variables) => {
       await queryClient.cancelQueries({ queryKey: taskQueryKeys.all });
       const previousTasks = queryClient.getQueryData<Task[]>(taskQueryKeys.all);
@@ -199,7 +199,7 @@ export const useTasks = (filters: TaskFilters = {}) => {
 
   // Delete task mutation (optimistic)
   const deleteTask = useMutation({
-    mutationFn: taskApi.deleteTask,
+    mutationFn: (taskId: string) => taskApi.deleteTask(taskId),
     onMutate: async (deletedId: string) => {
       await queryClient.cancelQueries({ queryKey: taskQueryKeys.all });
       const previousTasks = queryClient.getQueryData<Task[]>(taskQueryKeys.all);
@@ -325,7 +325,7 @@ export const useCreateTask = () => {
     CreateTaskData,
     { previousTasks?: Task[]; tempId?: string }
   >({
-    mutationFn: taskApi.createTask,
+    mutationFn: (variables) => taskApi.createTask(variables),
     onMutate: async (variables) => {
       await queryClient.cancelQueries({ queryKey: taskQueryKeys.all });
       const previousTasks = queryClient.getQueryData<Task[]>(taskQueryKeys.all);
@@ -425,7 +425,7 @@ export const useDeleteTask = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: taskApi.deleteTask,
+    mutationFn: (taskId: string) => taskApi.deleteTask(taskId),
     onMutate: async (deletedId: string) => {
       await queryClient.cancelQueries({ queryKey: taskQueryKeys.all });
       const previousTasks = queryClient.getQueryData<Task[]>(taskQueryKeys.all);
@@ -455,7 +455,7 @@ export const useToggleTask = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: taskApi.toggleTask,
+    mutationFn: (taskId: string) => taskApi.toggleTask(taskId),
     onMutate: async (taskId) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: taskQueryKeys.all });

@@ -220,7 +220,7 @@ export const useCreateEvent = () => {
     Parameters<typeof eventApi.createEvent>[0],
     { previousEvents?: CalendarEvent[]; tempId?: string }
   >({
-    mutationFn: eventApi.createEvent,
+    mutationFn: (variables) => eventApi.createEvent(variables),
     onMutate: async (variables) => {
       await queryClient.cancelQueries({ queryKey: eventQueryKeys.all });
       const previousEvents = queryClient.getQueryData<CalendarEvent[]>(
@@ -327,7 +327,7 @@ export const useDeleteEvent = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: eventApi.deleteEvent,
+    mutationFn: (eventId: string) => eventApi.deleteEvent(eventId),
     onMutate: async (eventId) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: eventQueryKeys.all });
