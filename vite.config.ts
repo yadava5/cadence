@@ -34,6 +34,33 @@ export default defineConfig({
     // Chunk size warnings
     chunkSizeWarningLimit: 600,
     rollupOptions: {
+      // A circular manual chunk fails the build. It is not a style issue.
+      //
+      // rollup exits 0 while printing "Circular chunk: radix-core ->
+      // radix-extended -> radix-core" and writes a bundle whose chunks import
+      // each other — and when one side needs a value from the other during
+      // evaluation, that bundle throws before React mounts and every route
+      // renders blank. @radix-ui/react-slot 1.3.3 did exactly that: it ships
+      // esbuild keep-names wrappers, and the helper lived in the other chunk.
+      // CI's Build job asks only whether rollup exited 0, and no CI job or
+      // Vercel build step loads the bundle it writes. The e2e suite does load
+      // it — that is what caught this one — but CI does not run e2e. This
+      // step can, at build time, for free.
+      //
+      // Only CIRCULAR_CHUNK is promoted. Everything else goes to vite's own
+      // handler unchanged, chunk-size warnings included.
+      onwarn(warning, defaultHandler) {
+        if (warning.code === 'CIRCULAR_CHUNK') {
+          throw new Error(
+            `${warning.message}\n` +
+              'Refusing to emit a bundle whose manual chunks import each ' +
+              'other: the evaluation order is not guaranteed, so the app can ' +
+              'render blank while the build still exits 0. Move the shared ' +
+              'package into the chunk that imports it.'
+          );
+        }
+        defaultHandler(warning);
+      },
       output: {
         // Optimize chunk strategy for lazy loading
         manualChunks: {
