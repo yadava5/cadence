@@ -45,12 +45,28 @@ export default defineConfig({
           'state-management': ['zustand', '@tanstack/react-query'],
 
           // UI component libraries (split by usage frequency)
+          //
+          // react-slot and react-primitive are listed HERE, with the components
+          // that import them. dialog/popover/tooltip depend on slot and all
+          // five depend on primitive, while alert-dialog (radix-extended)
+          // depends on dialog — so leaving either of those two shared packages
+          // on the radix-extended side makes the two chunks import each other.
+          // Rollup says exactly that ("Circular chunk: radix-core ->
+          // radix-extended -> radix-core"), and from slot 1.3.3 the cycle is
+          // fatal rather than untidy: the package ships esbuild keep-names
+          // wrappers now, so radix-core evaluates first and calls the
+          // not-yet-initialised `__name` helper that landed in the other chunk
+          // — "TypeError: q is not a function", and the whole app renders
+          // blank. Anything added to radix-extended that a radix-core package
+          // imports will do it again; the chunks must stay a one-way edge.
           'radix-core': [
             '@radix-ui/react-dialog',
             '@radix-ui/react-dropdown-menu',
             '@radix-ui/react-popover',
             '@radix-ui/react-tooltip',
             '@radix-ui/react-tabs',
+            '@radix-ui/react-slot',
+            '@radix-ui/react-primitive',
           ],
           'radix-extended': [
             '@radix-ui/react-alert-dialog',
@@ -62,7 +78,6 @@ export default defineConfig({
             '@radix-ui/react-radio-group',
             '@radix-ui/react-select',
             '@radix-ui/react-separator',
-            '@radix-ui/react-slot',
             '@radix-ui/react-switch',
             '@radix-ui/react-toggle',
             '@radix-ui/react-toggle-group',
