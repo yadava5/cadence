@@ -109,6 +109,20 @@ const chooseDelete = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
 };
 
+/**
+ * The board reaches that confirmation through the same two Radix modal layers
+ * the list view does — the row's ⋮ menu closing as the dialog opens — so it is
+ * exposed to the same defect. A dismissable layer saves document.body's
+ * pointer-events in MODULE scope; split that module across two installed
+ * copies and the menu and the dialog stop sharing the saved value, so closing
+ * the dialog can restore `pointer-events: none` for good and the page takes no
+ * clicks at all. scripts/check-radix-dedupe.mjs fails the build on the
+ * dependency shape that causes it; this asserts the symptom is absent here
+ * too. The full mechanism is documented in TaskItem.delete.test.tsx.
+ */
+const expectPageStillClickable = () =>
+  expect(document.body.style.pointerEvents).toBe('');
+
 /** The options sonner was handed for the most recent toast. */
 const lastToastOptions = () => {
   const calls = vi.mocked(toast).mock.calls;
@@ -173,9 +187,10 @@ describe('deleting a task from the kanban board', () => {
     await waitFor(() =>
       expect(mockTaskApi.deleteTask).toHaveBeenCalledWith('task-1')
     );
+    expectPageStillClickable();
   });
 
-  it('cancelling that dialog keeps the task', async () => {
+  it('cancelling that dialog keeps the task, and the board still takes clicks', async () => {
     const user = userEvent.setup();
     await renderBoard(taskWithFile);
 
@@ -183,5 +198,13 @@ describe('deleting a task from the kanban board', () => {
     await user.click(await screen.findByRole('button', { name: 'Cancel' }));
 
     expect(mockTaskApi.deleteTask).not.toHaveBeenCalled();
+    expectPageStillClickable();
+    // The row is still operable, which is what a user would actually notice.
+    await user.click(
+      screen.getByLabelText('Task options for "Ship the report"')
+    );
+    expect(
+      await screen.findByRole('menuitem', { name: 'Delete' })
+    ).toBeInTheDocument();
   });
 });
