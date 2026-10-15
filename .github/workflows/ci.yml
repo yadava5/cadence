@@ -124,6 +124,23 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
+      # Runs before the install, because it needs no install: it reads the
+      # lockfile only. A @radix-ui internal package installed more than once is
+      # a valid tree that npm ci, the build, lint and typecheck are all happy
+      # with — and a real bug, because those packages keep shared state
+      # (document.body's saved pointer-events) in module scope. On 2026-10-15 a
+      # group bump left react-tooltip a generation behind the other four
+      # packages pinning react-dismissable-layer, and closing the task
+      # delete-confirmation left `pointer-events: none` on <body> permanently:
+      # the page stopped accepting clicks while every check here was green.
+      # Lives in this job because the two tests that noticed are in this suite,
+      # and only by accident — the leaked style poisoned a later test, so they
+      # passed in isolation with the bug live. Verified in both directions
+      # before it was added: fails on the lock that shipped the bug, passes on
+      # the fix and on main.
+      - name: Check @radix-ui internals are installed once
+        run: npm run check:radix-dedupe
+
       - name: Install dependencies
         run: npm ci
 
