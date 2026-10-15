@@ -65,6 +65,25 @@ const chooseDelete = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.click(await screen.findByText('Delete'));
 };
 
+/**
+ * The confirmation is reached from the row's ⋮ menu, so two Radix modal layers
+ * hand over: the menu closes as the dialog opens. Each dismissable layer saves
+ * document.body's pointer-events on mount and restores it on unmount, and that
+ * saved value is module-level state — so if the menu and the dialog resolve to
+ * *different copies* of @radix-ui/react-dismissable-layer, the dialog captures
+ * the menu's `none` as its own "original" and closing the dialog restores
+ * `none` permanently. The page then takes no clicks at all until a reload.
+ *
+ * That is not a jsdom artifact; it reproduces in Chromium against the
+ * production bundle. It is also easy to reintroduce by accident: every
+ * @radix-ui package pins its internal packages to an *exact* version, so a
+ * dependency bump that moves react-dialog/react-menu without moving
+ * react-tooltip leaves npm unable to hoist one copy, and this is the result.
+ * Assert it directly rather than relying on the leak tripping a later test.
+ */
+const expectPageStillClickable = () =>
+  expect(document.body.style.pointerEvents).toBe('');
+
 describe('deleting a task', () => {
   it('deletes straight away when the delete is undoable', async () => {
     const user = userEvent.setup();
@@ -90,7 +109,7 @@ describe('deleting a task', () => {
     expect(dialog).toHaveTextContent('cannot be undone');
   });
 
-  it('cancelling the confirmation keeps the task', async () => {
+  it('cancelling the confirmation keeps the task, and the page still takes clicks', async () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
     renderItem(withFile, onDelete);
@@ -99,9 +118,15 @@ describe('deleting a task', () => {
     await user.click(await screen.findByRole('button', { name: 'Cancel' }));
 
     expect(onDelete).not.toHaveBeenCalled();
+    expectPageStillClickable();
+    // The row is still operable, which is what a user would actually notice.
+    await user.click(
+      screen.getByLabelText('Task options for "Ship the report"')
+    );
+    expect(await screen.findByText('Delete')).toBeInTheDocument();
   });
 
-  it('confirming the dialog deletes the task', async () => {
+  it('confirming the dialog deletes the task, and the page still takes clicks', async () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
     renderItem(withFile, onDelete);
@@ -110,5 +135,6 @@ describe('deleting a task', () => {
     await user.click(await screen.findByRole('button', { name: 'Delete' }));
 
     expect(onDelete).toHaveBeenCalledWith('task-1');
+    expectPageStillClickable();
   });
 });
