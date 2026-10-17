@@ -19,6 +19,10 @@ vi.mock('@/hooks/useCalendarManagement', () => ({
   useCalendarManagement: vi.fn(),
 }));
 
+vi.mock('@/hooks/useCalendarExport', () => ({
+  useCalendarExport: () => vi.fn(),
+}));
+
 vi.mock('@/stores/settingsStore', () => ({
   useSettingsStore: vi.fn(),
 }));

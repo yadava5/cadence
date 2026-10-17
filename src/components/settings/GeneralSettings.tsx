@@ -38,7 +38,6 @@ import { useAllTasks } from '@/hooks/useTasks';
 import { authAPI } from '@/services/api/auth';
 import {
   buildExportJson,
-  buildEventsIcs,
   downloadBlob,
   exportDateStamp,
 } from '@/utils/exportData';
@@ -394,19 +393,26 @@ export function GeneralSettings() {
     }
   };
 
-  const handleExportIcs = () => {
+  const handleExportIcs = async () => {
     if (events.length === 0) {
       toast('No events to export');
       return;
     }
-    downloadBlob(
-      buildEventsIcs(events),
-      `cadence-events-${exportDateStamp()}.ics`,
-      'text/calendar'
-    );
-    toast.success('Calendar (.ics) downloaded', {
-      description: `${events.length} events`,
-    });
+    try {
+      const { buildEventsIcs } = await import('@/utils/ics');
+      downloadBlob(
+        buildEventsIcs(events),
+        `cadence-events-${exportDateStamp()}.ics`,
+        'text/calendar;charset=utf-8'
+      );
+      toast.success('Calendar (.ics) downloaded', {
+        description: `${events.length} ${events.length === 1 ? 'event' : 'events'}`,
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to export events'
+      );
+    }
   };
 
   const handleConfirmDelete = async () => {

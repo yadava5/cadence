@@ -17,6 +17,7 @@ export interface CalendarListProps {
   onAddCalendar: (name: string, color: string) => void;
   onEditCalendar: (currentName: string, newName: string, color: string) => void;
   onDeleteCalendar?: (name: string) => void;
+  onExportCalendar?: (name: string) => void;
 }
 
 // Convert Calendar to CheckboxModeItem
@@ -37,6 +38,7 @@ const CalendarListComponent: React.FC<CalendarListProps> = ({
   onAddCalendar,
   onEditCalendar,
   onDeleteCalendar,
+  onExportCalendar,
 }) => {
   const [showCreateDialog, setShowCreateDialog] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<CheckboxModeItem | null>(
@@ -61,6 +63,12 @@ const CalendarListComponent: React.FC<CalendarListProps> = ({
   const handleDelete = onDeleteCalendar
     ? (item: CheckboxModeItem) => {
         onDeleteCalendar(item.name);
+      }
+    : undefined;
+
+  const handleExport = onExportCalendar
+    ? (item: CheckboxModeItem) => {
+        onExportCalendar(item.name);
       }
     : undefined;
 
@@ -97,6 +105,8 @@ const CalendarListComponent: React.FC<CalendarListProps> = ({
         setShowCreateDialog(true);
       }}
       onDelete={handleDelete}
+      onExport={handleExport}
+      exportLabel="Export as .ics"
       showCreateDialog={showCreateDialog}
       onShowCreateDialog={(open) => {
         setShowCreateDialog(open);

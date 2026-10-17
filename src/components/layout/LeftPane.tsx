@@ -31,6 +31,7 @@ const TaskAnalyticsSummary = lazy(async () => ({
 import { EventOverview } from '@/components/calendar/EventOverview';
 import { useTaskManagement } from '@/hooks/useTaskManagement';
 import { useCalendarManagement } from '@/hooks/useCalendarManagement';
+import { useCalendarExport } from '@/hooks/useCalendarExport';
 import { useUIStore } from '@/stores/uiStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { BaseSidebarPane } from './BaseSidebarPane';
@@ -460,6 +461,7 @@ const LeftPaneComponent: React.FC<LeftPaneProps> = ({ className }) => {
   const memoizedHandleDeleteCalendar = useCallback(handleDeleteCalendar, [
     handleDeleteCalendar,
   ]);
+  const handleExportCalendar = useCalendarExport();
 
   // Memoized handlers for TaskGroupList
   const memoizedHandleAddTaskGroupForList = useCallback(
@@ -505,6 +507,7 @@ const LeftPaneComponent: React.FC<LeftPaneProps> = ({ className }) => {
         onAddCalendar={memoizedHandleAddCalendar}
         onEditCalendar={memoizedHandleEditCalendar}
         onDeleteCalendar={memoizedHandleDeleteCalendar}
+        onExportCalendar={handleExportCalendar}
       />
     ) : (
       <div className="space-y-2">
@@ -534,6 +537,7 @@ const LeftPaneComponent: React.FC<LeftPaneProps> = ({ className }) => {
     memoizedHandleAddCalendar,
     memoizedHandleEditCalendar,
     memoizedHandleDeleteCalendar,
+    handleExportCalendar,
     taskGroups,
     activeTaskGroupId,
     memoizedHandleAddTaskGroupForList,

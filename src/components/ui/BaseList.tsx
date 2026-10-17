@@ -6,6 +6,7 @@ import {
   Settings,
   Edit,
   Trash2,
+  Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -80,6 +81,8 @@ export interface BaseListProps<T extends BaseListItem> {
   onEdit: (item: T, name: string, color: string) => void;
   onDelete?: (item: T) => void;
   onStartEdit?: (item: T) => void; // Optional: trigger parent-controlled dialog edit flow
+  onExport?: (item: T) => void; // Optional: adds an export entry to the item menu
+  exportLabel?: string;
 
   // Dialog support
   showCreateDialog?: boolean;
@@ -144,6 +147,8 @@ export function BaseList<T extends BaseListItem>({
   onEdit,
   onStartEdit,
   onDelete,
+  onExport,
+  exportLabel = 'Export',
   showCreateDialog = false,
   onShowCreateDialog,
   onCreateDialogSubmit,
@@ -265,6 +270,8 @@ export function BaseList<T extends BaseListItem>({
                 onEdit={onEdit}
                 onStartEdit={onStartEdit}
                 onDelete={onDelete}
+                onExport={onExport}
+                exportLabel={exportLabel}
                 recentColors={recentColors}
                 onRecentColorAdd={handleRecentColorAdd}
                 deleteDialogTitle={deleteDialogTitle}
@@ -385,6 +392,8 @@ interface BaseListItemProps<T extends BaseListItem> {
   onEdit: (item: T, name: string, color: string) => void;
   onStartEdit?: (item: T) => void;
   onDelete?: (item: T) => void;
+  onExport?: (item: T) => void;
+  exportLabel: string;
   recentColors: string[];
   onRecentColorAdd: (color: string) => void;
   deleteDialogTitle: string;
@@ -400,6 +409,8 @@ function BaseListItem<T extends BaseListItem>({
   onEdit,
   onStartEdit,
   onDelete,
+  onExport,
+  exportLabel,
   recentColors,
   onRecentColorAdd,
   deleteDialogTitle,
@@ -539,10 +550,15 @@ function BaseListItem<T extends BaseListItem>({
           </div>
         </div>
 
-        <div className="flex items-center opacity-0 group-hover/calendar:opacity-100 transition-opacity">
+        <div className="flex items-center opacity-0 group-hover/calendar:opacity-100 focus-within:opacity-100 transition-opacity">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 ml-auto"
+                aria-label={`Options for ${item.name}`}
+              >
                 <MoreVertical className="w-3 h-3" />
               </Button>
             </DropdownMenuTrigger>
@@ -590,6 +606,12 @@ function BaseListItem<T extends BaseListItem>({
                   />
                 </DropdownMenuShortcut>
               </DropdownMenuItem>
+              {onExport && (
+                <DropdownMenuItem onClick={() => onExport(item)}>
+                  <Download className="mr-2 h-4 w-4" />
+                  <span>{exportLabel}</span>
+                </DropdownMenuItem>
+              )}
               {onDelete && !item.isDefault && (
                 <>
                   <DropdownMenuSeparator />
