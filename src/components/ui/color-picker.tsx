@@ -18,7 +18,7 @@ export interface ColorPickerProps {
   value: string;
   onChange: (color: string) => void;
   recentColors?: string[];
-  onRecentColorAdd?: (color: string) => void;
+  onColorUsed?: (color: string) => void;
   className?: string;
 }
 
@@ -26,7 +26,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
   value,
   onChange,
   recentColors = [],
-  onRecentColorAdd,
+  onColorUsed,
   className,
 }) => {
   // Note: recentColors functionality not yet implemented
@@ -102,10 +102,10 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
       if (!open && committedColor !== value) {
         // Only call onChange when popup closes and color has changed
         onChange(committedColor);
-        onRecentColorAdd?.(committedColor);
+        onColorUsed?.(committedColor);
       }
     },
-    [committedColor, value, onChange, onRecentColorAdd]
+    [committedColor, value, onChange, onColorUsed]
   );
 
   // Create proper OKLCH color wheel for trigger button with theme responsiveness

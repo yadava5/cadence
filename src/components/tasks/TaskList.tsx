@@ -256,7 +256,7 @@ const TaskListComponent: React.FC<TaskListProps> = ({
     onUpdateTaskGroupColor?.(activeTaskGroup.id, color);
   };
 
-  const handleRecentColorAdd = (color: string) => {
+  const handleColorUsed = (color: string) => {
     setRecentColors((prev) => {
       const filtered = prev.filter((c) => c !== color);
       return [color, ...filtered].slice(0, 5);
@@ -312,7 +312,7 @@ const TaskListComponent: React.FC<TaskListProps> = ({
           value={activeTaskGroup.color}
           onChange={handleUpdateColor}
           recentColors={recentColors}
-          onRecentColorAdd={handleRecentColorAdd}
+          onColorUsed={handleColorUsed}
           className="w-3 h-3 border-0"
         />
       </DropdownMenuShortcut>

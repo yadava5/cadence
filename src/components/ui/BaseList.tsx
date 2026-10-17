@@ -187,7 +187,7 @@ export function BaseList<T extends BaseListItem>({
     onShowCreateDialog?.(false);
   };
 
-  const handleRecentColorAdd = (color: string) => {
+  const handleColorUsed = (color: string) => {
     setRecentColors((prev) => {
       const filtered = prev.filter((c) => c !== color);
       return [color, ...filtered].slice(0, 5);
@@ -266,7 +266,7 @@ export function BaseList<T extends BaseListItem>({
                 onStartEdit={onStartEdit}
                 onDelete={onDelete}
                 recentColors={recentColors}
-                onRecentColorAdd={handleRecentColorAdd}
+                onColorUsed={handleColorUsed}
                 deleteDialogTitle={deleteDialogTitle}
                 deleteDialogDescription={deleteDialogDescription}
               />
@@ -386,7 +386,7 @@ interface BaseListItemProps<T extends BaseListItem> {
   onStartEdit?: (item: T) => void;
   onDelete?: (item: T) => void;
   recentColors: string[];
-  onRecentColorAdd: (color: string) => void;
+  onColorUsed: (color: string) => void;
   deleteDialogTitle: string;
   deleteDialogDescription: (itemName: string) => string;
 }
@@ -401,7 +401,7 @@ function BaseListItem<T extends BaseListItem>({
   onStartEdit,
   onDelete,
   recentColors,
-  onRecentColorAdd,
+  onColorUsed,
   deleteDialogTitle,
   deleteDialogDescription,
 }: BaseListItemProps<T>) {
@@ -572,7 +572,7 @@ function BaseListItem<T extends BaseListItem>({
                       onClick={(e) => {
                         e.stopPropagation();
                         onEdit(item, item.name, color);
-                        onRecentColorAdd(color);
+                        onColorUsed(color);
                       }}
                       className="w-3 h-3 rounded-full border border-border hover:scale-110 transition-transform"
                       style={{ backgroundColor: color }}
@@ -582,10 +582,10 @@ function BaseListItem<T extends BaseListItem>({
                     value={item.color}
                     onChange={(color) => {
                       onEdit(item, item.name, color);
-                      onRecentColorAdd(color);
+                      onColorUsed(color);
                     }}
                     recentColors={recentColors}
-                    onRecentColorAdd={onRecentColorAdd}
+                    onColorUsed={onColorUsed}
                     className="w-3 h-3 border-0"
                   />
                 </DropdownMenuShortcut>

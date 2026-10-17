@@ -115,7 +115,7 @@ export const TaskListSelector: React.FC<TaskListSelectorProps> = ({
     setIsAddingTaskList(false);
   };
 
-  const handleRecentColorAdd = (color: string) => {
+  const handleColorUsed = (color: string) => {
     setRecentColors((prev) => {
       const filtered = prev.filter((c) => c !== color);
       return [color, ...filtered].slice(0, 5);
@@ -188,7 +188,7 @@ export const TaskListSelector: React.FC<TaskListSelectorProps> = ({
                     : undefined
                 }
                 recentColors={recentColors}
-                onRecentColorAdd={handleRecentColorAdd}
+                onColorUsed={handleColorUsed}
               />
             </div>
           ))}
@@ -280,7 +280,7 @@ interface TaskListItemProps {
   onEdit: (name: string, color: string, icon: string) => void;
   onDelete?: () => void;
   recentColors?: string[];
-  onRecentColorAdd?: (color: string) => void;
+  onColorUsed?: (color: string) => void;
 }
 
 const TaskListItem: React.FC<TaskListItemProps> = ({
@@ -289,7 +289,7 @@ const TaskListItem: React.FC<TaskListItemProps> = ({
   onEdit,
   onDelete,
   recentColors = [],
-  onRecentColorAdd,
+  onColorUsed,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(taskList.name);
@@ -435,7 +435,7 @@ const TaskListItem: React.FC<TaskListItemProps> = ({
                       onClick={(e) => {
                         e.stopPropagation();
                         onEdit(taskList.name, color, taskList.icon);
-                        onRecentColorAdd?.(color);
+                        onColorUsed?.(color);
                       }}
                       className="w-3 h-3 rounded-full border border-border hover:scale-110 transition-transform"
                       style={{ backgroundColor: color }}
@@ -445,10 +445,10 @@ const TaskListItem: React.FC<TaskListItemProps> = ({
                     value={taskList.color}
                     onChange={(color) => {
                       onEdit(taskList.name, color, taskList.icon);
-                      onRecentColorAdd?.(color);
+                      onColorUsed?.(color);
                     }}
                     recentColors={recentColors}
-                    onRecentColorAdd={onRecentColorAdd}
+                    onColorUsed={onColorUsed}
                     className="w-3 h-3 border-0"
                   />
                 </DropdownMenuShortcut>
