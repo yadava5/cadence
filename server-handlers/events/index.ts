@@ -145,6 +145,7 @@ export default createCrudHandler({
         calendarId: body.calendarId as string,
         allDay: body.allDay,
         recurrence: body.recurrence,
+        exceptions: body.exceptions,
       };
 
       if (!eventData.title) {

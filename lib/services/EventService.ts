@@ -21,6 +21,8 @@ export interface EventEntity extends UserOwnedEntity {
   location: string | null;
   notes: string | null;
   recurrence: string | null;
+  /** ISO instants of deleted occurrences; see {@link normalizeExceptions}. */
+  exceptions: string[];
   calendarId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -47,6 +49,7 @@ export interface CreateEventDTO {
   calendarId: string;
   allDay?: boolean;
   recurrence?: string;
+  exceptions?: string[];
 }
 
 /**
@@ -62,6 +65,7 @@ export interface UpdateEventDTO {
   calendarId?: string;
   allDay?: boolean;
   recurrence?: string;
+  exceptions?: string[];
 }
 
 /**
@@ -178,6 +182,40 @@ function parseRRuleUntil(value: string): Date | null {
   return parsed;
 }
 
+/** Same ceiling as an RRULE's COUNT: a series cannot have more occurrences. */
+const MAX_EXCEPTIONS = 1000;
+
+/**
+ * Validate and canonicalise a recurring event's deleted occurrences.
+ *
+ * The client hides an occurrence when `occurrenceStart.toISOString()` is in
+ * this list (`src/utils/recurrence.ts`), so equality is on the exact string.
+ * Each entry is re-serialised through `Date#toISOString`, which turns
+ * "2026-10-19T13:00:00Z" into the "…:00.000Z" form that comparison needs, and
+ * duplicates are dropped. Order is otherwise kept.
+ */
+export function normalizeExceptions(input: unknown): string[] {
+  if (!Array.isArray(input)) {
+    throw new Error('VALIDATION_ERROR: exceptions must be an array');
+  }
+  if (input.length > MAX_EXCEPTIONS) {
+    throw new Error(
+      `VALIDATION_ERROR: exceptions may hold at most ${MAX_EXCEPTIONS} entries`
+    );
+  }
+  const out = new Set<string>();
+  for (const entry of input) {
+    const time = typeof entry === 'string' ? Date.parse(entry) : Number.NaN;
+    if (Number.isNaN(time)) {
+      throw new Error(
+        'VALIDATION_ERROR: each exception must be an ISO-8601 date-time'
+      );
+    }
+    out.add(new Date(time).toISOString());
+  }
+  return [...out];
+}
+
 /**
  * EventService - Handles all event-related operations
  */
@@ -255,9 +293,15 @@ export class EventService extends BaseService<
       await this.validateCreate(data, context);
       await this.ensureUserExists(context?.userId, 'dev@example.com');
 
+      // `exceptions` is named only when there are some, so creating an event
+      // does not depend on migration 0009 having been applied; the column's
+      // default covers every other insert.
+      const exceptions = data.exceptions?.length
+        ? normalizeExceptions(data.exceptions)
+        : [];
       const inserted = await query(
-        `INSERT INTO events (id, title, description, start, "end", "allDay", location, notes, recurrence, "userId", "calendarId", "createdAt", "updatedAt")
-         VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+        `INSERT INTO events (id, title, description, start, "end", "allDay", location, notes, recurrence, "userId", "calendarId", "createdAt", "updatedAt"${exceptions.length ? ', exceptions' : ''})
+         VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW()${exceptions.length ? ', $11' : ''})
          RETURNING *`,
         [
           data.title.trim(),
@@ -270,6 +314,7 @@ export class EventService extends BaseService<
           data.recurrence || null,
           context!.userId!,
           data.calendarId,
+          ...(exceptions.length ? [exceptions] : []),
         ],
         this.db
       );
@@ -426,6 +471,9 @@ export class EventService extends BaseService<
         throw new Error(`VALIDATION_ERROR: Recurrence rule ${problem}`);
       }
     }
+
+    // Throws on a malformed list; the write path normalises it again.
+    if (data.exceptions !== undefined) normalizeExceptions(data.exceptions);
   }
 
   /**
@@ -493,6 +541,9 @@ export class EventService extends BaseService<
         throw new Error(`VALIDATION_ERROR: Recurrence rule ${problem}`);
       }
     }
+
+    // Throws on a malformed list; the write path normalises it again.
+    if (data.exceptions !== undefined) normalizeExceptions(data.exceptions);
   }
 
   /**
@@ -506,7 +557,7 @@ export class EventService extends BaseService<
     await this.validateUpdate(id, data, context);
 
     const sets: string[] = [];
-    const params: Array<string | boolean | null | Date> = [];
+    const params: Array<string | string[] | boolean | null | Date> = [];
 
     if (data.title !== undefined) {
       params.push(data.title.trim());
@@ -546,6 +597,10 @@ export class EventService extends BaseService<
     if (data.calendarId !== undefined) {
       params.push(data.calendarId);
       sets.push(`"calendarId" = $${params.length}`);
+    }
+    if (data.exceptions !== undefined) {
+      params.push(normalizeExceptions(data.exceptions));
+      sets.push(`exceptions = $${params.length}`);
     }
 
     params.push(new Date());

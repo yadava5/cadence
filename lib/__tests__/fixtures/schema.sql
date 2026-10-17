@@ -58,6 +58,7 @@ CREATE TABLE "events" (
     "location" TEXT,
     "notes" TEXT,
     "recurrence" TEXT,
+    "exceptions" TEXT[] NOT NULL DEFAULT '{}',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "userId" TEXT NOT NULL,
