@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 
+import AxeBuilder from '@axe-core/playwright';
 import ICAL from 'ical.js';
+import type { Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
 
@@ -46,22 +48,46 @@ const EVENTS = [
   },
 ];
 
+async function seed(page: Page): Promise<void> {
+  await page.evaluate(
+    ([calendars, events]) => {
+      localStorage.setItem('calendar-app-calendars', JSON.stringify(calendars));
+      localStorage.setItem('calendar-app-events', JSON.stringify(events));
+    },
+    [CALENDARS, EVENTS] as const
+  );
+  await page.reload();
+  await expect(page.locator('.fc')).toBeVisible();
+}
+
+/** Press Tab until `target` has focus; fail if it never does. */
+async function tabTo(
+  page: Page,
+  target: ReturnType<Page['getByRole']>,
+  max: number
+): Promise<void> {
+  for (let i = 0; i < max; i++) {
+    await page.keyboard.press('Tab');
+    if (await target.evaluate((el) => el === document.activeElement)) return;
+  }
+  throw new Error(`Tab never reached ${target} in ${max} presses`);
+}
+
+/** axe violations inside `selector`, as readable one-liners. */
+async function axeViolations(page: Page, selector: string): Promise<string[]> {
+  const { violations } = await new AxeBuilder({ page })
+    .include(selector)
+    .analyze();
+  return violations.flatMap((v) =>
+    v.nodes.map((n) => `${v.id}: ${n.failureSummary} — ${n.html}`)
+  );
+}
+
 test.describe('export a calendar to .ics', () => {
   test('the calendar menu downloads that calendar, recurrence and exception intact', async ({
     page,
   }) => {
-    await page.evaluate(
-      ([calendars, events]) => {
-        localStorage.setItem(
-          'calendar-app-calendars',
-          JSON.stringify(calendars)
-        );
-        localStorage.setItem('calendar-app-events', JSON.stringify(events));
-      },
-      [CALENDARS, EVENTS] as const
-    );
-    await page.reload();
-    await expect(page.locator('.fc')).toBeVisible();
+    await seed(page);
 
     // The sidebar's calendar list starts collapsed.
     await page.getByRole('button', { name: 'Expand calendar list' }).click();
@@ -117,5 +143,85 @@ test.describe('export a calendar to .ics', () => {
       '2026-11-03T01:00:00.000Z',
       '2026-11-10T01:00:00.000Z',
     ]);
+  });
+
+  test('keyboard only: reach the menu, export, get focus back; menu and toast pass axe', async ({
+    page,
+  }) => {
+    await seed(page);
+    const expand = page.getByRole('button', { name: 'Expand calendar list' });
+    const trigger = page.getByRole('button', {
+      name: 'Options for Team Rituals',
+    });
+    const exportItem = page.getByRole('menuitem', { name: 'Export as .ics' });
+
+    // From the top of the page, with nothing but the keyboard.
+    await page.locator('body').focus();
+    await tabTo(page, expand, 60);
+    await page.keyboard.press('Enter');
+    await tabTo(page, trigger, 10);
+
+    // The trigger only shows on hover; a keyboard user must see it too.
+    // Effective opacity: the product over every ancestor, since any one of
+    // them can be the element that hides it.
+    await expect
+      .poll(() =>
+        trigger.evaluate((el) => {
+          let opacity = 1;
+          for (let n: Element | null = el; n; n = n.parentElement) {
+            opacity *= Number(getComputedStyle(n).opacity);
+          }
+          return opacity;
+        })
+      )
+      .toBe(1);
+    await expect(trigger).toBeVisible();
+
+    // Enter opens the menu and puts focus inside it, named for its calendar.
+    await page.keyboard.press('Enter');
+    const menu = page.getByRole('menu', { name: 'Options for Team Rituals' });
+    await expect(menu).toBeVisible();
+    await expect(page.getByRole('menuitem').first()).toBeFocused();
+    expect(await axeViolations(page, '[role="menu"]')).toEqual([]);
+
+    for (let i = 0; i < 6; i++) {
+      if (await exportItem.evaluate((el) => el === document.activeElement)) {
+        break;
+      }
+      await page.keyboard.press('ArrowDown');
+    }
+    await expect(exportItem).toBeFocused();
+
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.keyboard.press('Enter'),
+    ]);
+    expect(download.suggestedFilename()).toMatch(/^cadence-team-rituals-/);
+
+    // The menu closes and focus goes back where it came from, not to <body>.
+    await expect(menu).toBeHidden();
+    await expect(trigger).toBeFocused();
+
+    // The result is announced: the toast lands in a polite live region.
+    const live = page.locator('section[aria-live="polite"]');
+    await expect(live).toContainText('Exported “Team Rituals”');
+    // Scan once the toast has finished fading in: mid-animation its text is
+    // blended with the background and the contrast reading is meaningless.
+    await expect
+      .poll(() =>
+        page
+          .locator('[data-sonner-toast]')
+          .first()
+          .evaluate((el) => getComputedStyle(el).opacity)
+      )
+      .toBe('1');
+    expect(await axeViolations(page, '[data-sonner-toaster]')).toEqual([]);
+
+    // Space opens it too, and Escape hands focus back to the trigger.
+    await page.keyboard.press('Space');
+    await expect(menu).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeHidden();
+    await expect(trigger).toBeFocused();
   });
 });

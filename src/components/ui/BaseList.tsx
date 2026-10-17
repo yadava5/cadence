@@ -67,6 +67,18 @@ const DEFAULT_COLORS = [
   '#84cc16', // Lime
 ];
 
+// Spoken names for the swatches: a hex value means nothing read aloud.
+const COLOR_NAMES: Record<string, string> = {
+  '#3b82f6': 'Blue',
+  '#ef4444': 'Red',
+  '#10b981': 'Green',
+  '#f59e0b': 'Amber',
+  '#8b5cf6': 'Purple',
+  '#ec4899': 'Pink',
+  '#06b6d4': 'Cyan',
+  '#84cc16': 'Lime',
+};
+
 export interface BaseListProps<T extends BaseListItem> {
   items: T[];
   title: string;
@@ -585,6 +597,7 @@ function BaseListItem<T extends BaseListItem>({
                   {DEFAULT_COLORS.slice(0, 4).map((color) => (
                     <button
                       key={color}
+                      aria-label={`Set color to ${COLOR_NAMES[color]}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         onEdit(item, item.name, color);

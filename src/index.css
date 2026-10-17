@@ -969,3 +969,17 @@ h1 {
     }
   }
 }
+
+/* Toast text contrast (WCAG 1.4.3). sonner's light rich colours put each
+   type's text on its tinted background below 4.5:1 — success 4.26, info and
+   error 4.35, warning 3.08 — and the Toaster's `classNames` colours never
+   apply, because `richColors` styles win. Same hues, darker text: 5.22,
+   5.28, 5.04, 5.32. The dark palette already clears 6.5:1 and is untouched.
+   The repeated attribute outranks sonner's own selector, whose stylesheet is
+   injected at runtime and so would otherwise win on source order. */
+[data-sonner-toaster][data-sonner-toaster][data-sonner-theme='light'] {
+  --success-text: hsl(140, 100%, 24%);
+  --info-text: hsl(210, 92%, 40%);
+  --warning-text: hsl(31, 92%, 34%);
+  --error-text: hsl(360, 100%, 40%);
+}
