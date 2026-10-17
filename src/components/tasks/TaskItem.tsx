@@ -39,7 +39,7 @@ import {
 import { cn } from '@/lib/utils';
 import { taskDeleteIsRecoverable } from '@/lib/undoDelete';
 import { Task } from '@shared/types';
-import { useCalendars } from '@/hooks/useCalendars';
+import { useCalendarList } from '@/hooks/useCalendars';
 import { useTasks } from '@/hooks/useTasks';
 import { taskQueryKeys } from '@/hooks/useTasks';
 import { useQueryClient } from '@tanstack/react-query';
@@ -124,7 +124,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   });
   const inputRef = useRef<HTMLInputElement>(null);
   // Calendars must be read via hook at top-level (Rules of Hooks)
-  const { data: calendars = [] } = useCalendars();
+  const { data: calendars = [] } = useCalendarList();
   const { updateTask } = useTasks();
   const { taskGroups } = useTaskManagement({ includeTaskOperations: false });
   const taskCompletionControl = useSettingsStore(

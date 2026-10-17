@@ -2,7 +2,7 @@ import React, { memo } from 'react';
 import { format } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 import { useEvents } from '@/hooks/useEvents';
-import { useCalendars } from '@/hooks/useCalendars';
+import { useCalendarList } from '@/hooks/useCalendars';
 import { useCalendarCommandStore } from '@/stores/calendarCommandStore';
 import { useUIStore } from '@/stores/uiStore';
 import { type CalendarEvent } from '@shared/types';
@@ -25,7 +25,7 @@ const EventOverviewComponent: React.FC<EventOverviewProps> = ({
   className,
   showHeader = true,
 }) => {
-  const { data: calendars = [] } = useCalendars();
+  const { data: calendars = [] } = useCalendarList();
   const { data: allEvents = [] } = useEvents({}, { enabled: true });
   const dispatchCalendar = useCalendarCommandStore((s) => s.dispatch);
   const setCurrentView = useUIStore((s) => s.setCurrentView);

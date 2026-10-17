@@ -74,7 +74,7 @@ const filterCalendars = (
 /**
  * Comprehensive hook for calendar management - matches LeftPane expectations
  */
-export const useCalendars = () => {
+export const useCalendarList = () => {
   const queryClient = useQueryClient();
 
   // Main query for calendars data

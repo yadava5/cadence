@@ -18,7 +18,7 @@ import {
 import { ViewSwitcher } from '@/components/ui/ViewSwitcher';
 import { useInsightsStore } from '@/stores/insightsStore';
 import { useAllEvents } from '@/hooks/useEvents';
-import { useCalendars } from '@/hooks/useCalendars';
+import { useCalendarList } from '@/hooks/useCalendars';
 import {
   computeWeekInsights,
   formatHours,
@@ -60,7 +60,7 @@ export function WeekInsights() {
   const [range, setRange] = useState<InsightRange>('thisWeek');
 
   const { data: events = [] } = useAllEvents();
-  const { data: calendars = [] } = useCalendars();
+  const { data: calendars = [] } = useCalendarList();
 
   const insights = useMemo(() => {
     const { start } = getInsightWindow(range);

@@ -24,7 +24,7 @@ export {
 } from './useEvents';
 
 export {
-  useCalendars,
+  useCalendarList,
   useAllCalendars,
   useVisibleCalendars,
   useCalendar,

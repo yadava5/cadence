@@ -17,7 +17,7 @@ import { clsx } from 'clsx';
 import './calendar.css';
 
 import { useEvents, useUpdateEvent, useSwipeDetection } from '../../hooks';
-import { useCalendars } from '../../hooks';
+import { useCalendarList } from '../../hooks';
 import type { CalendarEvent } from '@shared/types';
 import { toLocal } from '../../utils/date';
 import { expandOccurrences } from '@/utils/recurrence';
@@ -176,7 +176,8 @@ export const CalendarView = ({
   }, [effectiveView, calendarRef]);
 
   // Hooks for data management
-  const { data: calendars = [], isLoading: calendarsLoading } = useCalendars();
+  const { data: calendars = [], isLoading: calendarsLoading } =
+    useCalendarList();
   const visibleCalendars = calendars.filter((cal) => cal.visible);
   const visibleCalendarNames = visibleCalendars.map((cal) => cal.name);
   // Track default calendar color for consistent preview styling

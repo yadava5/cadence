@@ -1,4 +1,4 @@
-import { useCalendars } from './useCalendars';
+import { useCalendarList } from './useCalendars';
 
 export const useCalendarManagement = () => {
   const {
@@ -8,7 +8,7 @@ export const useCalendarManagement = () => {
     updateCalendar,
     deleteCalendar,
     isLoading: calendarsLoading,
-  } = useCalendars();
+  } = useCalendarList();
 
   const handleToggleCalendar = (name: string) => {
     toggleCalendar.mutate(name);

@@ -191,7 +191,7 @@ flowchart TB
     subgraph Server["Server State (TanStack Query)"]
         Tasks[useTasks<br/>CRUD + Optimistic]
         Events[useEvents<br/>Calendar Data]
-        Calendars[useCalendars<br/>Visibility]
+        Calendars[useCalendarList<br/>Visibility]
     end
 
     subgraph Features

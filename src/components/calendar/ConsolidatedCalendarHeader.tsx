@@ -29,7 +29,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { useCalendars } from '@/hooks/useCalendars';
+import { useCalendarList } from '@/hooks/useCalendars';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { cn } from '@/lib/utils';
 import { toLocal, parseLocalDate } from '@/utils/date';
@@ -282,7 +282,7 @@ const CalendarFilterPopover: React.FC<{
           <p>Filter events</p>
         </TooltipContent>
       </Tooltip>
-      {/* Radix only mounts PopoverContent (and its useCalendars query) when
+      {/* Radix only mounts PopoverContent (and its useCalendarList query) when
           open, so the header itself needs no QueryClient just to render.
           Sections manage their own padding (p-0 here) so hairline dividers
           can run edge to edge; the panel is viewport-constrained (responsive
@@ -337,7 +337,7 @@ const CalendarFilterBody: React.FC<{
   filters: CalendarFilterState;
   onFiltersChange: (filters: CalendarFilterState) => void;
 }> = ({ filters, onFiltersChange }) => {
-  const { data: calendars = [] } = useCalendars();
+  const { data: calendars = [] } = useCalendarList();
   const allNames = React.useMemo(
     () => calendars.filter((c) => c.visible).map((c) => c.name),
     [calendars]

@@ -50,7 +50,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 import type { CalendarEvent } from '@shared/types';
-import { useCalendars } from '@/hooks/useCalendars';
+import { useCalendarList } from '@/hooks/useCalendars';
 import { useUIStore } from '@/stores/uiStore';
 
 interface EventDisplayDialogProps {
@@ -67,7 +67,7 @@ function EventDisplayDialogContent({
   event: CalendarEvent;
   actions?: React.ReactNode;
 }) {
-  const { data: calendars = [] } = useCalendars();
+  const { data: calendars = [] } = useCalendarList();
   // Mutations are lazily used in actions; keep declarations close to use sites to avoid unused warnings
   // Lazy usage within action handlers; define here to initialize hooks
   // Keep hooks declarations but reference variables to satisfy linter until used in handlers

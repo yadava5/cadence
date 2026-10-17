@@ -43,7 +43,7 @@ import {
 
 import type { CalendarEvent } from '@shared/types';
 import { toast } from 'sonner';
-import { useCalendars } from '@/hooks/useCalendars';
+import { useCalendarList } from '@/hooks/useCalendars';
 import { useCreateEvent, useUpdateEvent } from '@/hooks/useEvents';
 import { useCreateTask } from '@/hooks/useTasks';
 import { useTaskManagement } from '@/hooks/useTaskManagement';
@@ -244,7 +244,7 @@ function EventCreationDialogContent({
 }) {
   const dateDisplayMode = useSettingsStore((s) => s.dateDisplayMode);
   const autoSaveDrafts = useSettingsStore((s) => s.autoSaveDrafts);
-  const { data: calendars = [] } = useCalendars();
+  const { data: calendars = [] } = useCalendarList();
   const createEventMutation = useCreateEvent();
   const updateEventMutation = useUpdateEvent();
   const createTaskMutation = useCreateTask();

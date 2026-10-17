@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { type ReactNode } from 'react';
 import { useTasks, useCreateTask } from '../useTasks';
 import { useEvents, useCreateEvent } from '../useEvents';
-import { useCalendars, useCreateCalendar } from '../useCalendars';
+import { useCalendarList, useCreateCalendar } from '../useCalendars';
 
 import { taskApi, eventApi, calendarApi } from '../../services/api';
 
@@ -125,7 +125,7 @@ describe('React Query Integration', () => {
     it('should cache calendar data correctly', async () => {
       const wrapper = createWrapper();
 
-      const { result } = renderHook(() => useCalendars(), { wrapper });
+      const { result } = renderHook(() => useCalendarList(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isSuccess).toBe(true);
@@ -222,7 +222,7 @@ describe('React Query Integration', () => {
 
       const tasksResult = renderHook(() => useTasks(), { wrapper });
       const eventsResult = renderHook(() => useEvents(), { wrapper });
-      const calendarsResult = renderHook(() => useCalendars(), { wrapper });
+      const calendarsResult = renderHook(() => useCalendarList(), { wrapper });
 
       await waitFor(() => {
         expect(tasksResult.result.current.isSuccess).toBe(true);

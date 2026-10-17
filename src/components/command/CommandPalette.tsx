@@ -47,7 +47,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useAllEvents } from '@/hooks/useEvents';
 import { useAllTasks } from '@/hooks/useTasks';
-import { useCalendars } from '@/hooks/useCalendars';
+import { useCalendarList } from '@/hooks/useCalendars';
 import { useCreateEvent } from '@/hooks/useEvents';
 import { useCreateTask } from '@/hooks/useTasks';
 import { parseQuickAdd } from '@/lib/quickAdd';
@@ -198,7 +198,7 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
 
   const { data: events = [] } = useAllEvents();
   const { data: tasks = [] } = useAllTasks();
-  const { data: calendars = [] } = useCalendars();
+  const { data: calendars = [] } = useCalendarList();
   const createEvent = useCreateEvent();
   const createTask = useCreateTask();
 

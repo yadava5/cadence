@@ -62,7 +62,7 @@ vi.mock('../../../hooks', () => ({
     ],
     isLoading: false,
   })),
-  useCalendars: vi.fn(() => ({
+  useCalendarList: vi.fn(() => ({
     data: [
       {
         name: 'Primary',
