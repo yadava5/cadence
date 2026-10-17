@@ -1,10 +1,11 @@
-import React, { useState, ReactNode } from 'react';
+import React, { useRef, useState, ReactNode } from 'react';
 import {
   Plus,
   ChevronUp,
   MoreVertical,
   Settings,
   Edit,
+  Palette,
   Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -15,8 +16,13 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuPortal,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -55,16 +61,19 @@ export interface SelectionModeItem extends BaseListItem {
   id: string; // Required for selection mode
 }
 
-const DEFAULT_COLORS = [
-  '#3b82f6', // Blue
-  '#ef4444', // Red
-  '#10b981', // Green
-  '#f59e0b', // Amber
-  '#8b5cf6', // Purple
-  '#ec4899', // Pink
-  '#06b6d4', // Cyan
-  '#84cc16', // Lime
+// Named so the colour menu can announce "Blue" rather than a hex value
+const NAMED_COLORS = [
+  { value: '#3b82f6', name: 'Blue' },
+  { value: '#ef4444', name: 'Red' },
+  { value: '#10b981', name: 'Green' },
+  { value: '#f59e0b', name: 'Amber' },
+  { value: '#8b5cf6', name: 'Purple' },
+  { value: '#ec4899', name: 'Pink' },
+  { value: '#06b6d4', name: 'Cyan' },
+  { value: '#84cc16', name: 'Lime' },
 ];
+
+const DEFAULT_COLORS = NAMED_COLORS.map((c) => c.value);
 
 export interface BaseListProps<T extends BaseListItem> {
   items: T[];
@@ -80,6 +89,7 @@ export interface BaseListProps<T extends BaseListItem> {
   onEdit: (item: T, name: string, color: string) => void;
   onDelete?: (item: T) => void;
   onStartEdit?: (item: T) => void; // Optional: trigger parent-controlled dialog edit flow
+  onOpenSettings?: (item: T) => void; // Optional: shows a Settings item that opens the list's settings
 
   // Dialog support
   showCreateDialog?: boolean;
@@ -143,6 +153,7 @@ export function BaseList<T extends BaseListItem>({
   onAdd,
   onEdit,
   onStartEdit,
+  onOpenSettings,
   onDelete,
   showCreateDialog = false,
   onShowCreateDialog,
@@ -264,6 +275,7 @@ export function BaseList<T extends BaseListItem>({
                 onSelect={onSelect}
                 onEdit={onEdit}
                 onStartEdit={onStartEdit}
+                onOpenSettings={onOpenSettings}
                 onDelete={onDelete}
                 recentColors={recentColors}
                 onColorUsed={handleColorUsed}
@@ -384,6 +396,7 @@ interface BaseListItemProps<T extends BaseListItem> {
   onSelect?: (item: T) => void;
   onEdit: (item: T, name: string, color: string) => void;
   onStartEdit?: (item: T) => void;
+  onOpenSettings?: (item: T) => void;
   onDelete?: (item: T) => void;
   recentColors: string[];
   onColorUsed: (color: string) => void;
@@ -399,6 +412,7 @@ function BaseListItem<T extends BaseListItem>({
   onSelect,
   onEdit,
   onStartEdit,
+  onOpenSettings,
   onDelete,
   recentColors,
   onColorUsed,
@@ -409,6 +423,17 @@ function BaseListItem<T extends BaseListItem>({
   const [editName, setEditName] = useState(item.name);
   const [editColor, setEditColor] = useState(item.color);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  // Settings and Custom… open surfaces that take focus. They run once the menu
+  // has closed and handed focus back to the options button, so closing them
+  // can return focus there instead of to a menu item that no longer exists.
+  const afterMenuCloseRef = useRef<(() => void) | null>(null);
+  const optionsButtonRef = useRef<HTMLButtonElement>(null);
+
+  const handleColorPick = (color: string) => {
+    onEdit(item, item.name, color);
+    onColorUsed(color);
+  };
 
   const handleSaveEdit = () => {
     const trimmedName = editName.trim();
@@ -539,18 +564,42 @@ function BaseListItem<T extends BaseListItem>({
           </div>
         </div>
 
-        <div className="flex items-center opacity-0 group-hover/calendar:opacity-100 transition-opacity">
+        <div
+          className={cn(
+            'flex items-center opacity-0 group-hover/calendar:opacity-100 focus-within:opacity-100 has-[[data-state=open]]:opacity-100 transition-opacity',
+            showColorPicker && 'opacity-100'
+          )}
+        >
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto">
+              <Button
+                ref={optionsButtonRef}
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 ml-auto"
+                aria-label={`Options for ${item.name}`}
+              >
                 <MoreVertical className="w-3 h-3" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-48">
-              <DropdownMenuItem>
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Settings</span>
-              </DropdownMenuItem>
+            <DropdownMenuContent
+              align="start"
+              className="w-48"
+              onCloseAutoFocus={() => {
+                afterMenuCloseRef.current?.();
+                afterMenuCloseRef.current = null;
+              }}
+            >
+              {onOpenSettings && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    afterMenuCloseRef.current = () => onOpenSettings(item);
+                  }}
+                >
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Settings</span>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 onClick={() =>
                   onStartEdit ? onStartEdit(item) : setIsEditing(true)
@@ -559,37 +608,49 @@ function BaseListItem<T extends BaseListItem>({
                 <Edit className="mr-2 h-4 w-4" />
                 <span>Edit</span>
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <div
-                  className="mr-2 h-4 w-4 rounded-full flex-shrink-0 border-2 border-border"
-                  style={{ backgroundColor: item.color }}
-                />
-                <span>Color</span>
-                <DropdownMenuShortcut className="flex gap-1 ml-auto">
-                  {DEFAULT_COLORS.slice(0, 4).map((color) => (
-                    <button
-                      key={color}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onEdit(item, item.name, color);
-                        onColorUsed(color);
-                      }}
-                      className="w-3 h-3 rounded-full border border-border hover:scale-110 transition-transform"
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                  <ColorPicker
-                    value={item.color}
-                    onChange={(color) => {
-                      onEdit(item, item.name, color);
-                      onColorUsed(color);
-                    }}
-                    recentColors={recentColors}
-                    onColorUsed={onColorUsed}
-                    className="w-3 h-3 border-0"
+              {/* A submenu, not swatch buttons inside an item: menu roving
+                  focus only visits menu items, so nested buttons were
+                  unreachable and Enter just selected (closed) the row. */}
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <div
+                    className="mr-2 h-4 w-4 rounded-full flex-shrink-0 border-2 border-border"
+                    style={{ backgroundColor: item.color }}
                   />
-                </DropdownMenuShortcut>
-              </DropdownMenuItem>
+                  <span>Color</span>
+                </DropdownMenuSubTrigger>
+                {/* Portalled: inside the parent menu its overflow clipped the
+                    submenu to an invisible, unclickable sliver */}
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent className="w-40">
+                    <DropdownMenuRadioGroup
+                      // Stored colours may be uppercase (the default calendars are)
+                      value={item.color.toLowerCase()}
+                      onValueChange={handleColorPick}
+                    >
+                      {NAMED_COLORS.map(({ value, name }) => (
+                        <DropdownMenuRadioItem key={value} value={value}>
+                          <span
+                            className="h-3 w-3 rounded-full border border-border flex-shrink-0"
+                            style={{ backgroundColor: value }}
+                          />
+                          <span>{name}</span>
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => {
+                        afterMenuCloseRef.current = () =>
+                          setShowColorPicker(true);
+                      }}
+                    >
+                      <Palette className="mr-2 h-4 w-4" />
+                      <span>Custom…</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
               {onDelete && !item.isDefault && (
                 <>
                   <DropdownMenuSeparator />
@@ -606,6 +667,16 @@ function BaseListItem<T extends BaseListItem>({
           </DropdownMenu>
         </div>
       </div>
+
+      <ColorPicker
+        value={item.color}
+        onChange={(color) => onEdit(item, item.name, color)}
+        recentColors={recentColors}
+        onColorUsed={onColorUsed}
+        anchorRef={optionsButtonRef}
+        open={showColorPicker}
+        onOpenChange={setShowColorPicker}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

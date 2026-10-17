@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/Button';
 import {
   Popover,
+  PopoverAnchor,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
@@ -20,6 +21,15 @@ export interface ColorPickerProps {
   recentColors?: string[];
   onColorUsed?: (color: string) => void;
   className?: string;
+  /**
+   * Open the picker from somewhere other than its own swatch, such as a menu
+   * item. With an anchor the picker renders no trigger, positions against the
+   * anchor, starts focus in the hex field and returns it to the anchor on
+   * close, so it can be driven from the keyboard. Pair with open/onOpenChange.
+   */
+  anchorRef?: React.RefObject<HTMLElement | null>;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export const ColorPicker: React.FC<ColorPickerProps> = ({
@@ -28,14 +38,26 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
   recentColors = [],
   onColorUsed,
   className,
+  anchorRef,
+  open,
+  onOpenChange,
 }) => {
   // Note: recentColors functionality not yet implemented
   void recentColors;
   const [inputValue, setInputValue] = useState(value);
-  const [isOpen, setIsOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const isOpen = open ?? uncontrolledOpen;
   const [committedColor, setCommittedColor] = useState(value);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // A click outside closes the picker; focus then belongs to what was clicked.
+  const closedByPointerRef = useRef(false);
+
+  // Keys stay inside the picker, except Tab when anchored: the popover's focus
+  // scope needs it to cycle between the swatches and the hex field.
+  const stopKeyPropagation = (e: React.KeyboardEvent) => {
+    if (!(anchorRef && e.key === 'Tab')) e.stopPropagation();
+  };
 
   // Detect theme changes
   useEffect(() => {
@@ -97,15 +119,16 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
 
   // Handle popup close and commit the color
   const handlePopoverOpenChange = useCallback(
-    (open: boolean) => {
-      setIsOpen(open);
-      if (!open && committedColor !== value) {
+    (nextOpen: boolean) => {
+      if (open === undefined) setUncontrolledOpen(nextOpen);
+      onOpenChange?.(nextOpen);
+      if (!nextOpen && committedColor !== value) {
         // Only call onChange when popup closes and color has changed
         onChange(committedColor);
         onColorUsed?.(committedColor);
       }
     },
-    [committedColor, value, onChange, onColorUsed]
+    [open, onOpenChange, committedColor, value, onChange, onColorUsed]
   );
 
   // Create proper OKLCH color wheel for trigger button with theme responsiveness
@@ -131,31 +154,49 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
 
   return (
     <Popover open={isOpen} onOpenChange={handlePopoverOpenChange} modal={false}>
-      <PopoverTrigger asChild>
-        <button
-          className={`w-3 h-3 rounded-full border border-border hover:scale-110 transition-transform ${className}`}
-          style={{
-            background: isDarkMode
-              ? multicolorGradientDark
-              : multicolorGradient,
-          }}
-          aria-label="Pick custom color"
-          onClick={(e) => {
-            e.stopPropagation();
-          }}
-        />
-      </PopoverTrigger>
+      {anchorRef ? (
+        <PopoverAnchor virtualRef={anchorRef} />
+      ) : (
+        <PopoverTrigger asChild>
+          <button
+            className={`w-3 h-3 rounded-full border border-border hover:scale-110 transition-transform ${className}`}
+            style={{
+              background: isDarkMode
+                ? multicolorGradientDark
+                : multicolorGradient,
+            }}
+            aria-label="Pick custom color"
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+          />
+        </PopoverTrigger>
+      )}
       <PopoverContent
         className="w-auto p-0"
+        aria-label="Color picker"
         align="start"
         side="right"
         sideOffset={10}
-        onOpenAutoFocus={(e) => e.preventDefault()}
-        onCloseAutoFocus={(e) => e.preventDefault()}
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          if (anchorRef) {
+            inputRef.current?.focus();
+            inputRef.current?.select();
+          }
+        }}
+        onCloseAutoFocus={(e) => {
+          e.preventDefault();
+          if (anchorRef && !closedByPointerRef.current) {
+            anchorRef.current?.focus();
+          }
+          closedByPointerRef.current = false;
+        }}
         onEscapeKeyDown={() => handlePopoverOpenChange(false)}
         onPointerDownOutside={(e) => {
           const target = e.target as Element;
           if (!target.closest('[data-radix-dropdown-menu-content]')) {
+            closedByPointerRef.current = true;
             handlePopoverOpenChange(false);
           }
         }}
@@ -165,7 +206,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
         <div
           className="p-4 space-y-4"
           onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
+          onKeyDown={stopKeyPropagation}
         >
           {/* Preset Colors with close button on same row */}
           <div>
@@ -214,11 +255,13 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
                 onChange={handleCustomColorChange}
                 className="min-w-0 text-sm"
                 placeholder="#000000"
+                aria-label="Hex color"
                 onKeyDown={(e) => {
-                  if (e.key === 'Escape') {
+                  if (e.key === 'Escape' || e.key === 'Enter') {
+                    e.preventDefault();
                     handlePopoverOpenChange(false);
                   }
-                  e.stopPropagation();
+                  stopKeyPropagation(e);
                 }}
                 onMouseDown={(e) => e.stopPropagation()}
                 onMouseMove={(e) => e.stopPropagation()}

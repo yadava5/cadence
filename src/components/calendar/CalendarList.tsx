@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import { Calendar } from 'lucide-react';
 import { BaseList, CheckboxModeItem } from '@/components/ui/BaseList';
 import { CreateCalendarDialog } from '@/components/dialogs/CreateCalendarDialog';
+import type { SettingsSection } from '@/components/settings/SettingsDialog';
 
 export interface Calendar {
   name: string;
@@ -64,6 +65,16 @@ const CalendarListComponent: React.FC<CalendarListProps> = ({
       }
     : undefined;
 
+  // Calendar settings (visible hours) live in the app settings dialog, which
+  // MainLayout owns; it listens for this event.
+  const handleOpenSettings = () => {
+    window.dispatchEvent(
+      new CustomEvent<{ section: SettingsSection }>('app:open-settings', {
+        detail: { section: 'calendar' },
+      })
+    );
+  };
+
   const handleCreateFromDialog = (data: {
     name: string;
     description: string;
@@ -96,6 +107,7 @@ const CalendarListComponent: React.FC<CalendarListProps> = ({
         setEditingItem(item);
         setShowCreateDialog(true);
       }}
+      onOpenSettings={handleOpenSettings}
       onDelete={handleDelete}
       showCreateDialog={showCreateDialog}
       onShowCreateDialog={(open) => {

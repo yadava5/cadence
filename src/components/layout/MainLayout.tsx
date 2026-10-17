@@ -27,6 +27,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { CommandPalette } from '@/components/command/CommandPalette';
 import { WeekInsights } from '@/components/insights/WeekInsights';
 import { useSettingsDialog } from '@/hooks/useSettingsDialog';
+import type { SettingsSection } from '@/components/settings/SettingsDialog';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useEventReminders } from '@/hooks/useEventReminders';
 import { useAuthStore } from '@/stores/authStore';
@@ -92,7 +93,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
   // Global event bridge so dropdown can open settings without prop drilling
   useEffect(() => {
     const handler = (e: Event) => {
-      const ce = e as CustomEvent<{ section?: 'general' | 'profile' | 'help' }>;
+      const ce = e as CustomEvent<{ section?: SettingsSection }>;
       const section = ce.detail?.section ?? 'general';
       openSettings(section);
     };

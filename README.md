@@ -326,7 +326,7 @@ rather than being invalidated on write.
 
 ## Testing
 
-Cadence ships with a broad automated test suite. The two Vitest projects run **102 test files — 69 frontend (`vitest.config.ts`) and 33 backend (`vitest.backend.config.ts`) — for 1,430 tests: 772 frontend and 658 backend, with 0 skipped.** Those are the figures the two root configs actually execute, taken from their run summaries. The tree holds 112 `*.test.ts(x)` files on disk; the other 10 live in `packages/backend` and `packages/shared`, which the root configs do not glob — they run under their own workspace-level Vitest configs (`npm test`, which fans out across workspaces). The 13 Playwright specs under `e2e/` run separately again. So 1,430 is the two-root-config total, not a whole-repo total.
+Cadence ships with a broad automated test suite. The two Vitest projects run **102 test files — 69 frontend (`vitest.config.ts`) and 33 backend (`vitest.backend.config.ts`) — for 1,430 tests: 772 frontend and 658 backend, with 0 skipped.** Those are the figures the two root configs actually execute, taken from their run summaries. The tree holds 112 `*.test.ts(x)` files on disk; the other 10 live in `packages/backend` and `packages/shared`, which the root configs do not glob — they run under their own workspace-level Vitest configs (`npm test`, which fans out across workspaces). The 14 Playwright specs under `e2e/` run separately again. So 1,430 is the two-root-config total, not a whole-repo total.
 
 The 12 that used to be skipped are the Postgres row-level-security module. They needed a live database from an environment variable that no workflow set, so they had never executed — anywhere, once. They now start their own `postgres:16` via testcontainers when `RLS_TEST_PG_ADMIN_URL` is absent, which means the isolation policies are _demonstrated_ rather than merely written. CI additionally asserts that the suite ran and that nothing was skipped, because a skipped security test and a passing one produce the same green tick.
 
@@ -525,7 +525,7 @@ npm run test:frontend:run   # vitest.config.ts          → 69 files, 772 tests
 npm run test:backend:run    # vitest.backend.config.ts  →  33 files, 658 tests
 ```
 
-The `include` globs in those two files are the whole explanation for why 1,430 is not the number of tests in the repository. `vitest.config.ts` takes `src/**/*.test.ts(x)` and excludes `packages/`, `api/`, `lib/` and `test/`; `vitest.backend.config.ts` takes `api/`, `lib/` and `server-handlers/` and excludes `src/`. Neither reaches `packages/backend` or `packages/shared` — those run under `npm run test:all`, which fans `test:run` across the workspaces first. The 13 Playwright specs in `e2e/` run under `npm run test:e2e`.
+The `include` globs in those two files are the whole explanation for why 1,430 is not the number of tests in the repository. `vitest.config.ts` takes `src/**/*.test.ts(x)` and excludes `packages/`, `api/`, `lib/` and `test/`; `vitest.backend.config.ts` takes `api/`, `lib/` and `server-handlers/` and excludes `src/`. Neither reaches `packages/backend` or `packages/shared` — those run under `npm run test:all`, which fans `test:run` across the workspaces first. The 14 Playwright specs in `e2e/` run under `npm run test:e2e`.
 
 **Two caveats on that sentence, both worth knowing before you trust it.** First,
 `npm run test:all` **exits 1 on a clean checkout**: `packages/backend`'s

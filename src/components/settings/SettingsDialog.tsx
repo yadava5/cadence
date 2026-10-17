@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -29,6 +29,9 @@ export function SettingsDialog({
 }: SettingsDialogProps) {
   const [activeSection, setActiveSection] =
     useState<SettingsSection>(defaultSection);
+  // This dialog has no DialogTrigger, so Radix's close handler has nothing to
+  // refocus and drops focus on <body>. Remember the opener and return to it.
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
   // Update active section when defaultSection changes and dialog opens
   useEffect(() => {
@@ -95,6 +98,18 @@ export function SettingsDialog({
       <DialogContent
         className="w-full max-w-[calc(100vw-2rem)] sm:max-w-[90vw] md:max-w-6xl h-[80vh] max-h-[800px] p-0 gap-0 grid-rows-[auto_1fr]"
         closeButtonClassName="top-2"
+        onOpenAutoFocus={() => {
+          // Runs before focus moves in, so activeElement is still the opener
+          returnFocusRef.current = document.activeElement as HTMLElement | null;
+        }}
+        onCloseAutoFocus={(e) => {
+          const opener = returnFocusRef.current;
+          returnFocusRef.current = null;
+          if (opener?.isConnected && opener !== document.body) {
+            e.preventDefault();
+            opener.focus();
+          }
+        }}
       >
         <DialogHeader className="px-6 py-2 border-b">
           <DialogTitle className="text-xl font-semibold">Settings</DialogTitle>
